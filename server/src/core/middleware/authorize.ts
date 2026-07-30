@@ -1,7 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import type { Role } from "../../config/auth.js";
 import { ROLE_HIERARCHY } from "../../config/auth.js";
-import { AppError } from "../utils/AppError.js";
+import { AppError } from "../errors/AppError.js";
+import { catchAsync } from "../utils/catchAsync.js";
 
 /**
  * Authorization middleware factory.
@@ -18,38 +19,33 @@ import { AppError } from "../utils/AppError.js";
  * ```
  */
 export function authorize(...allowedRoles: Role[]) {
-  return (req: Request, _res: Response, next: NextFunction): void => {
-    try {
-      const user = (req as any).user;
+  return catchAsync(async (req: Request, _res: Response, next: NextFunction) => {
+    const user = (req as any).user;
 
-      if (!user) {
-        throw AppError.unauthorized("Authentication required");
-      }
-
-      const userRole = user.role as Role;
-
-      // If no specific roles required, just check authentication
-      if (allowedRoles.length === 0) {
-        next();
-        return;
-      }
-
-      // Check if user has the required role (using hierarchy)
-      const userLevel = ROLE_HIERARCHY[userRole];
-      const hasAccess = allowedRoles.some((role) => {
-        const requiredLevel = ROLE_HIERARCHY[role];
-        return userLevel >= requiredLevel;
-      });
-
-      if (!hasAccess) {
-        throw AppError.forbidden(
-          `Access denied. Required role(s): ${allowedRoles.join(", ")}`,
-        );
-      }
-
-      next();
-    } catch (error) {
-      next(error);
+    if (!user) {
+      throw AppError.unauthorized("Authentication required");
     }
-  };
+
+    const userRole = user.role as Role;
+
+    // If no specific roles required, just check authentication
+    if (allowedRoles.length === 0) {
+      return next();
+    }
+
+    // Check if user has the required role (using hierarchy)
+    const userLevel = ROLE_HIERARCHY[userRole];
+    const hasAccess = allowedRoles.some((role) => {
+      const requiredLevel = ROLE_HIERARCHY[role];
+      return userLevel >= requiredLevel;
+    });
+
+    if (!hasAccess) {
+      throw AppError.forbidden(
+        `Access denied. Required role(s): ${allowedRoles.join(", ")}`,
+      );
+    }
+
+    next();
+  });
 }

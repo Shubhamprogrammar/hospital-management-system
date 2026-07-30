@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { auth } from "../../config/auth.js";
-import { AppError } from "../utils/AppError.js";
+import { AppError } from "../errors/AppError.js";
 
 /**
  * Express middleware that verifies the user's session using Better Auth.

@@ -1,20 +1,17 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Request, Response } from "express";
 import { getSession, listUsers, createUser } from "./auth.service.js";
 import { sendSuccess } from "../../core/utils/apiResponse.js";
-import { AppError } from "../../core/utils/AppError.js";
+import { AppError } from "../../core/errors/AppError.js";
 import { ROLES } from "../../config/auth.js";
 import type { Role } from "../../config/auth.js";
+import { catchAsync } from "../../core/utils/catchAsync.js";
 
 /**
  * GET /auth/me
  * Returns the current authenticated user's session.
  */
-export async function getSessionHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
+export const getSessionHandler = catchAsync(
+  async (req: Request, res: Response) => {
     const session = await getSession(
       req.headers as Record<string, string>,
     );
@@ -24,21 +21,15 @@ export async function getSessionHandler(
     }
 
     sendSuccess(res, session);
-  } catch (error) {
-    next(error);
-  }
-}
+  },
+);
 
 /**
  * GET /auth/users
  * Lists all users (admin only).
  */
-export async function listUsersHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
+export const listUsersHandler = catchAsync(
+  async (req: Request, res: Response) => {
     const page = req.query.page ? Number(req.query.page) : 1;
     const limit = req.query.limit ? Number(req.query.limit) : 20;
 
@@ -50,22 +41,16 @@ export async function listUsersHandler(
     sendSuccess(res, result.users, 200, {
       meta: { total: result.total, page, limit },
     });
-  } catch (error) {
-    next(error);
-  }
-}
+  },
+);
 
 /**
  * POST /auth/users
  * Creates a new user with a specific role (admin only).
  * Body: { name, email, password, role, phone? }
  */
-export async function createUserHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
+export const createUserHandler = catchAsync(
+  async (req: Request, res: Response) => {
     const { name, email, password, role, phone } = req.body;
 
     // Validate required fields
@@ -87,12 +72,10 @@ export async function createUserHandler(
     ];
 
     // SUPER_ADMIN can create any role; HOSPITAL_ADMIN can only create staff roles
-    let allowedRoles: Role[];
-    if (callerRole === ROLES.SUPER_ADMIN) {
-      allowedRoles = [...adminRoles, ...staffRoles];
-    } else {
-      allowedRoles = staffRoles;
-    }
+    const allowedRoles: Role[] =
+      callerRole === ROLES.SUPER_ADMIN
+        ? [...adminRoles, ...staffRoles]
+        : staffRoles;
 
     if (!allowedRoles.includes(role)) {
       throw AppError.forbidden(
@@ -108,7 +91,5 @@ export async function createUserHandler(
     sendSuccess(res, result.user, 201, {
       message: `User created with role: ${role}`,
     });
-  } catch (error) {
-    next(error);
-  }
-}
+  },
+);

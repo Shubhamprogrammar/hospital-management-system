@@ -43,7 +43,7 @@ export const ROLE_HIERARCHY: Record<Role, number> = {
  * Each resource lists all possible actions that can be performed on it.
  * Roles then use subsets of these actions.
  */
-const ALL_ACTIONS = ["create", "read", "update", "delete", "manage", "list"] as const;
+const ALL_ACTIONS = ["create", "read", "update", "delete", "manage", "list", "set-role"] as const;
 type Action = (typeof ALL_ACTIONS)[number];
 
 const RESOURCES = {
@@ -134,7 +134,7 @@ export const auth = betterAuth({
       roles: {
         [ROLES.SUPER_ADMIN]: ac.newRole({
           hospital: ["manage"],
-          user: ["create", "read", "update", "delete", "list"],
+          user: ["create", "read", "update", "delete", "list", "set-role"],
           patients: ["create", "read", "update"],
           appointments: ["create", "read", "update", "delete"],
           prescriptions: ["create", "read", "update", "delete"],
@@ -152,7 +152,7 @@ export const auth = betterAuth({
         }),
         [ROLES.HOSPITAL_ADMIN]: ac.newRole({
           hospital: ["manage"],
-          user: ["create", "read", "update", "list"],
+          user: ["create", "read", "update", "list", "set-role"],
           appointments: ["create", "read", "update", "delete"],
           patients: ["read"],
           billing: ["read", "update"],

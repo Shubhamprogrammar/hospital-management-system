@@ -1,10 +1,11 @@
 import "dotenv/config";
 import { app } from "./app.js";
 import { env } from "./config/env.js";
+import { logger } from "./core/utils/logger.js";
 import { connectMongo } from "./config/mongoose.js";
 
 process.on("uncaughtException", (err) => {
-  console.error(`❌ UNCAUGHT EXCEPTION! Shutting down...`, {
+  logger.error("UNCAUGHT EXCEPTION! Shutting down...", {
     error: err.message,
     stack: err.stack,
   });
@@ -32,6 +33,7 @@ async function main() {
 
   // Start HTTP server
   const server = app.listen(env.PORT, () => {
+    logger.info(`Server running on port ${env.PORT}`);
     console.log(`
 🚀 Hospital Management System API
    • Environment: ${env.NODE_ENV}
@@ -42,7 +44,7 @@ async function main() {
   });
 
   process.on("unhandledRejection", (err: unknown) => {
-    console.error("❌ UNHANDLED REJECTION! Shutting down...", {
+    logger.error("UNHANDLED REJECTION! Shutting down...", {
       error: err instanceof Error ? err.message : String(err),
     });
     server.close(() => process.exit(1));

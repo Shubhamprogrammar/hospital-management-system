@@ -3,7 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { router } from "./routes/index.js";
-import { errorHandler } from "./core/middleware/errorHandler.js";
+import { globalErrorHandler } from "./core/errors/errorHandler.js";
 import { requestLogger } from "./core/middleware/requestLogger.js";
 import { env } from "./config/env.js";
 
@@ -38,7 +38,7 @@ app.use(requestLogger);
 app.use("/api", router);
 
 // Global error handler (must be last)
-app.use(errorHandler);
+app.use(globalErrorHandler);
 
 // 404 handler
 app.use((_req, res) => {

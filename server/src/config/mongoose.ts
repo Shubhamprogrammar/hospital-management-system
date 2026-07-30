@@ -4,5 +4,5 @@ export async function connectMongo() {
   const uri = process.env.MONGO_URI;
   if (!uri) return;
   await mongoose.connect(uri);
-  console.log("mongo db connencted")
+  console.log("mongodb connencted")
 }

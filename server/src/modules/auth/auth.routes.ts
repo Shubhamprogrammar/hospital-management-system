@@ -2,6 +2,7 @@ import { Router } from "express";
 import { auth } from "../../config/auth.js";
 import { authMiddleware } from "../../core/middleware/auth.middleware.js";
 import { authorize } from "../../core/middleware/authorize.js";
+import { catchAsync } from "../../core/utils/catchAsync.js";
 import {
   getSessionHandler,
   listUsersHandler,
@@ -19,13 +20,14 @@ const authRoutes = Router();
  */
 const BETTER_AUTH_SKIP_PATHS = ["/me", "/users"];
 
-authRoutes.all("*", async (req, res, next) => {
-  // Skip custom routes that we handle explicitly
-  if (BETTER_AUTH_SKIP_PATHS.includes(req.path)) {
-    return next();
-  }
+authRoutes.all(
+  "*",
+  catchAsync(async (req, res, next) => {
+    // Skip custom routes that we handle explicitly
+    if (BETTER_AUTH_SKIP_PATHS.includes(req.path)) {
+      return next();
+    }
 
-  try {
     const protocol = req.protocol;
     const host = req.get("host") ?? "localhost";
     const baseUrl = `${protocol}://${host}`;
@@ -75,10 +77,8 @@ authRoutes.all("*", async (req, res, next) => {
     } else {
       res.end();
     }
-  } catch (error) {
-    next(error);
-  }
-});
+  }),
+);
 
 // Custom routes extending Better Auth
 authRoutes.get("/me", authMiddleware, getSessionHandler);
