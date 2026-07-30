@@ -1,7 +1,10 @@
-import type { Request, Response, NextFunction } from "express";
+import { authorize } from "./authorize.js";
+import type { Role } from "../../config/auth.js";
 
-export function roleMiddleware(..._roles: string[]) {
-  return (_req: Request, _res: Response, next: NextFunction) => {
-    next();
-  };
+/**
+ * @deprecated Use `authorize()` instead.
+ * Kept for backward compatibility.
+ */
+export function roleMiddleware(...roles: Role[]) {
+  return authorize(...roles);
 }

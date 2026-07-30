@@ -1,0 +1,155 @@
+{
+  "info": {
+    "_postman_id": "hms-api-2026",
+    "name": "Hospital Management System API",
+    "description": "Complete API collection for the Hospital Management System.\n\nBase URL: http://localhost:8080\n\n## Authentication\n- Sign up and Sign in return a session cookie\n- The cookie is automatically sent on subsequent requests\n- Sign out requires the Origin header for CSRF protection\n\n## Roles & Permissions\n- SUPER_ADMIN / HOSPITAL_ADMIN: Full admin access\n- DOCTOR, NURSE, LAB_TECHNICIAN, PHARMACIST, ACCOUNTANT, RECEPTIONIST: Staff roles\n- PATIENT: Default role with limited access",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "userEmail",
+      "value": "jane@hospital.com"
+    },
+    {
+      "key": "userPassword",
+      "value": "Pass@1234"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@hospital.com"
+    },
+    {
+      "key": "adminPassword",
+      "value": "Admin@123"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Sign Up",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/sign-up/email"
+          }
+        },
+        {
+          "name": "Sign In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/sign-in/email"
+          }
+        },
+        {
+          "name": "Get Session (Me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/auth/me"
+          }
+        },
+        {
+          "name": "Sign Out",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "http://localhost:5173",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/sign-out"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/auth/users?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Dr. Smith\",\n  \"email\": \"smith@hospital.com\",\n  \"password\": \"Doc@1234\",\n  \"role\": \"DOCTOR\",\n  \"phone\": \"+1-234-567-8901\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/users"
+          }
+        }
+      ]
+    }
+  ]
+}

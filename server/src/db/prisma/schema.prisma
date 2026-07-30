@@ -1,24 +1,86 @@
 generator client {
   provider = "prisma-client"
-  output   = "../../../generated/prisma"
+  output   = "../../../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
+/// Better Auth - User model
 model User {
-  id    Int    @id @default(autoincrement())
-  email String @unique
-  name  String?
-  posts Post[]
+  id           String    @id @default(cuid())
+  name         String?
+  email        String    @unique
+  emailVerified Boolean  @default(false)
+  image        String?
+  role         String    @default("PATIENT")
+
+  // Admin plugin fields (required by Better Auth Admin plugin)
+  banned       Boolean   @default(false)
+  banReason    String?
+  banExpires   DateTime?
+
+  // Hospital-specific fields
+  phone        String?
+  dateOfBirth  DateTime?
+  gender       String?
+  address      String?
+  bloodGroup   String?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions     Session[]
+  accounts     Account[]
 }
 
-model Post {
-  id        Int     @id @default(autoincrement())
-  title     String
-  content   String?
-  published Boolean @default(false)
-  author    User    @relation(fields: [authorId], references: [id])
-  authorId  Int
+/// Better Auth - Session model
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Better Auth - Account model (for OAuth and email/password)
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, providerId])
+  @@index([userId])
+}
+
+/// Better Auth - Verification model (for email verification, magic links, etc.)
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([identifier, id])
 }
