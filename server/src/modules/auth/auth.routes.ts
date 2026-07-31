@@ -7,6 +7,8 @@ import {
   getSessionHandler,
   listUsersHandler,
   createUserHandler,
+  listSessionsHandler,
+  revokeSessionHandler,
 } from "./auth.controller.js";
 
 const authRoutes = Router();
@@ -20,11 +22,23 @@ const authRoutes = Router();
  */
 const BETTER_AUTH_SKIP_PATHS = ["/me", "/users"];
 
+/**
+ * Custom routes are defined after the Better Auth catch-all below.
+ * Paths that start with these prefixes must fall through to the custom
+ * Express handlers (e.g. GET /sessions, DELETE /sessions/:sessionId).
+ */
+function isCustomAuthPath(path: string): boolean {
+  return (
+    BETTER_AUTH_SKIP_PATHS.includes(path) ||
+    path.startsWith("/sessions")
+  );
+}
+
 authRoutes.all(
   "*",
   catchAsync(async (req, res, next) => {
     // Skip custom routes that we handle explicitly
-    if (BETTER_AUTH_SKIP_PATHS.includes(req.path)) {
+    if (isCustomAuthPath(req.path)) {
       return next();
     }
 
@@ -82,6 +96,10 @@ authRoutes.all(
 
 // Custom routes extending Better Auth
 authRoutes.get("/me", authMiddleware, getSessionHandler);
+
+// Session management (FRD 4.7 — list & revoke active sessions)
+authRoutes.get("/sessions", authMiddleware, listSessionsHandler);
+authRoutes.delete("/sessions/:sessionId", authMiddleware, revokeSessionHandler);
 
 // Admin-only routes
 authRoutes.get("/users", authMiddleware, authorize("SUPER_ADMIN", "HOSPITAL_ADMIN"), listUsersHandler);

@@ -1,5 +1,11 @@
 import type { Request, Response } from "express";
-import { getSession, listUsers, createUser } from "./auth.service.js";
+import {
+  getSession,
+  listUsers,
+  createUser,
+  listSessions,
+  revokeSession,
+} from "./auth.service.js";
 import { sendSuccess } from "../../core/utils/apiResponse.js";
 import { AppError } from "../../core/errors/AppError.js";
 import { ROLES } from "../../config/auth.js";
@@ -39,7 +45,12 @@ export const listUsersHandler = catchAsync(
     );
 
     sendSuccess(res, result.users, 200, {
-      meta: { total: result.total, page, limit },
+      pagination: {
+        page,
+        limit,
+        totalItems: result.total,
+        totalPages: Math.ceil(result.total / limit),
+      },
     });
   },
 );
@@ -91,5 +102,32 @@ export const createUserHandler = catchAsync(
     sendSuccess(res, result.user, 201, {
       message: `User created with role: ${role}`,
     });
+  },
+);
+
+/**
+ * GET /auth/sessions
+ * Lists all active sessions for the current user (FRD 4.7-09).
+ */
+export const listSessionsHandler = catchAsync(
+  async (req: Request, res: Response) => {
+    const sessions = await listSessions(
+      req.headers as Record<string, string>,
+    );
+    sendSuccess(res, sessions);
+  },
+);
+
+/**
+ * DELETE /auth/sessions/:sessionId
+ * Revokes a specific session (FRD 4.7-10).
+ */
+export const revokeSessionHandler = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await revokeSession(
+      req.headers as Record<string, string>,
+      req.params.sessionId,
+    );
+    sendSuccess(res, { revoked: true, sessionId: req.params.sessionId });
   },
 );

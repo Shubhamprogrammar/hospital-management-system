@@ -15,8 +15,14 @@ export const ROLES = {
   DOCTOR: "DOCTOR",
   NURSE: "NURSE",
   LAB_TECHNICIAN: "LAB_TECHNICIAN",
+  PATHOLOGIST: "PATHOLOGIST",
   PHARMACIST: "PHARMACIST",
+  BILLING_STAFF: "BILLING_STAFF",
+  INVENTORY_MANAGER: "INVENTORY_MANAGER",
+  AMBULANCE_DISPATCHER: "AMBULANCE_DISPATCHER",
+  AMBULANCE_DRIVER: "AMBULANCE_DRIVER",
   ACCOUNTANT: "ACCOUNTANT",
+  IT_SUPPORT: "IT_SUPPORT",
   PATIENT: "PATIENT",
 } as const;
 
@@ -30,11 +36,17 @@ export const ROLE_HIERARCHY: Record<Role, number> = {
   SUPER_ADMIN: 100,
   HOSPITAL_ADMIN: 80,
   DOCTOR: 60,
+  PATHOLOGIST: 55,
   NURSE: 50,
   LAB_TECHNICIAN: 40,
   PHARMACIST: 40,
+  BILLING_STAFF: 40,
+  INVENTORY_MANAGER: 40,
+  AMBULANCE_DISPATCHER: 35,
   ACCOUNTANT: 40,
+  IT_SUPPORT: 30,
   RECEPTIONIST: 30,
+  AMBULANCE_DRIVER: 25,
   PATIENT: 10,
 };
 
@@ -194,6 +206,36 @@ export const auth = betterAuth({
           billing: ["create", "read", "update"],
           invoices: ["create", "read", "update"],
           payments: ["create", "read"],
+          profile: ["read", "update"],
+        }),
+        [ROLES.PATHOLOGIST]: ac.newRole({
+          "lab-tests": ["read", "update"],
+          "lab-reports": ["create", "read", "update"],
+          "medical-records": ["read"],
+          patients: ["read"],
+          profile: ["read", "update"],
+        }),
+        [ROLES.BILLING_STAFF]: ac.newRole({
+          billing: ["create", "read", "update"],
+          invoices: ["create", "read", "update"],
+          payments: ["create", "read"],
+          profile: ["read", "update"],
+        }),
+        [ROLES.INVENTORY_MANAGER]: ac.newRole({
+          medications: ["create", "read", "update"],
+          inventory: ["create", "read", "update"],
+          profile: ["read", "update"],
+        }),
+        [ROLES.AMBULANCE_DISPATCHER]: ac.newRole({
+          patients: ["read"],
+          profile: ["read", "update"],
+        }),
+        [ROLES.AMBULANCE_DRIVER]: ac.newRole({
+          patients: ["read"],
+          profile: ["read", "update"],
+        }),
+        [ROLES.IT_SUPPORT]: ac.newRole({
+          user: ["read"],
           profile: ["read", "update"],
         }),
         [ROLES.RECEPTIONIST]: ac.newRole({

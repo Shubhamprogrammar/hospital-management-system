@@ -32,6 +32,25 @@ export async function listUsers(
 }
 
 /**
+ * List active sessions for the current user (FRD 4.7-09).
+ */
+export async function listSessions(headers: Record<string, string>) {
+  const sessions = await auth.api.listSessions({ headers });
+  return sessions;
+}
+
+/**
+ * Revoke a specific session (FRD 4.7-10).
+ */
+export async function revokeSession(headers: Record<string, string>, sessionId: string) {
+  const result = await auth.api.revokeSession({
+    headers,
+    body: { token: sessionId },
+  });
+  return result;
+}
+
+/**
  * Create a new user with a specific role (admin only).
  * Requires SUPER_ADMIN or HOSPITAL_ADMIN role.
  */

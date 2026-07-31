@@ -43,6 +43,15 @@ async function main() {
     `);
   });
 
+  // Setup Socket.IO real-time layer (FRD 41)
+  try {
+    const { setupSocket } = await import("./core/utils/socket.js");
+    setupSocket(server);
+    console.log("📡 Socket.IO real-time layer initialized");
+  } catch (error) {
+    console.warn("⚠️  Socket.IO setup failed:", (error as Error).message);
+  }
+
   process.on("unhandledRejection", (err: unknown) => {
     logger.error("UNHANDLED REJECTION! Shutting down...", {
       error: err instanceof Error ? err.message : String(err),

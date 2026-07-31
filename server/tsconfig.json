@@ -9,7 +9,10 @@
     "declaration": true,
     "declarationMap": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
+    // exactOptionalPropertyTypes is disabled: it conflicts with Prisma's
+    // generated client types (unchecked create/update inputs) and produces
+    // false positives across every module.
+    "exactOptionalPropertyTypes": false,
     "strict": true,
     "jsx": "react-jsx",
     "verbatimModuleSyntax": true,
