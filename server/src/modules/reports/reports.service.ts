@@ -15,6 +15,26 @@ export async function listTemplates() {
 }
 
 /**
+ * Resolve a real ReportTemplate row for a template key, creating it on first
+ * use. ReportJob/ReportSchedule.templateId are FKs to ReportTemplate — the
+ * old "static-" + key placeholder never referenced an existing row.
+ *
+ * Uses an upsert on the unique name so concurrent first-time generations
+ * for the same key can't create duplicate template rows.
+ */
+async function ensureReportTemplate(key: string) {
+  const catalog = REPORT_TEMPLATES.find((t) => t.key === key);
+  if (!catalog) {
+    throw new AppError("Unknown report template", 400, undefined, "ERR_UNAUTHORIZED_REPORT_TYPE");
+  }
+  return prisma.reportTemplate.upsert({
+    where: { name: catalog.key },
+    update: {},
+    create: { name: catalog.key, module: catalog.module, description: catalog.description },
+  });
+}
+
+/**
  * Generate a report (FR 23.4-01). Synchronous for small reports;
  * large ones enqueue a report_jobs row for async processing.
  */
@@ -39,10 +59,11 @@ export async function generateReport(data: {
   const template = REPORT_TEMPLATES.find((t) => t.key === data.templateKey);
   if (!template) throw new AppError("Unknown report template", 400, undefined, "ERR_UNAUTHORIZED_REPORT_TYPE");
 
-  // Create a job row (FR 23.7-02)
+  // Create a job row (FR 23.7-02) against a real template record
+  const dbTemplate = await ensureReportTemplate(template.key);
   const job = await prisma.reportJob.create({
     data: {
-      templateId: "static-" + template.key,
+      templateId: dbTemplate.id,
       requestedBy: data.requestedBy,
       params: data as any,
       status: "PROCESSING",
@@ -73,9 +94,10 @@ export async function createSchedule(data: {
   createdBy?: string;
   params?: unknown;
 }) {
+  const dbTemplate = await ensureReportTemplate(data.templateKey);
   const schedule = await prisma.reportSchedule.create({
     data: {
-      templateId: "static-" + data.templateKey,
+      templateId: dbTemplate.id,
       cronExpression: data.cronExpression,
       recipients: data.recipients,
       createdBy: data.createdBy,

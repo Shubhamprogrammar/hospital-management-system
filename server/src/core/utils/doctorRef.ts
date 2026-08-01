@@ -16,7 +16,22 @@ export async function resolveDoctorId(
   explicitDoctorId?: string,
   context = "this action",
 ): Promise<string> {
-  if (explicitDoctorId) return explicitDoctorId;
+  // An explicit doctorId from the body must reference a real, active Doctor
+  // profile — otherwise downstream FKs fail with a raw P2003 (500) instead
+  // of a clean 400.
+  if (explicitDoctorId) {
+    const doctor = await prisma.doctor.findFirst({
+      where: { id: explicitDoctorId, deletedAt: null, isActive: true },
+      select: { id: true },
+    });
+    if (doctor) return doctor.id;
+    throw new AppError(
+      `The specified doctor profile is invalid or inactive for ${context}`,
+      400,
+      undefined,
+      "ERR_INVALID_DOCTOR_ID",
+    );
+  }
 
   if (userId) {
     const doctor = await prisma.doctor.findFirst({
