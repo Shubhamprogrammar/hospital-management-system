@@ -12,6 +12,10 @@
       "value": "http://localhost:8080"
     },
     {
+      "key": "clientUrl",
+      "value": "http://localhost:5173"
+    },
+    {
       "key": "adminEmail",
       "value": "admin@hospital.com"
     },
@@ -183,6 +187,11 @@
                 "key": "Content-Type",
                 "value": "application/json",
                 "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{clientUrl}}",
+                "type": "text"
               }
             ],
             "url": {
@@ -217,6 +226,11 @@
               {
                 "key": "Content-Type",
                 "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{clientUrl}}",
                 "type": "text"
               }
             ],
