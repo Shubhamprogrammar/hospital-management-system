@@ -1,3 +1,1 @@
-export default function ChatPage() {
-  return <div>Chat</div>;
-}
+export { default } from "@/modules/chat/page/ChatPage";

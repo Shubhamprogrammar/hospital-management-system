@@ -1,3 +1,1 @@
-export default function PatientsPage() {
-  return <div>Patients</div>;
-}
+export { default } from "@/modules/patients/page/PatientsPage";

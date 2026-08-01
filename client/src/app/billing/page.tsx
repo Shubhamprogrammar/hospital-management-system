@@ -1,3 +1,1 @@
-export default function BillingPage() {
-  return <div>Billing</div>;
-}
+export { default } from "@/modules/billing/page/BillingPage";

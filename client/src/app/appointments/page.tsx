@@ -1,3 +1,1 @@
-export default function AppointmentsPage() {
-  return <div>Appointments</div>;
-}
+export { default } from "@/modules/appointments/page/AppointmentsPage";
