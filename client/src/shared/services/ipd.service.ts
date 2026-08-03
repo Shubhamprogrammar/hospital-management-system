@@ -33,7 +33,7 @@ export function getAdmission(id: string) {
   return api.get<IpdAdmission>(`/ipd/admissions/${id}`);
 }
 
-export function addIpdRound(admissionId: string, input: { notes: string }) {
+export function addIpdRound(admissionId: string, input: { doctorId?: string; notes: string }) {
   return api.post<IpdRound>(`/ipd/admissions/${admissionId}/rounds`, input);
 }
 
@@ -45,7 +45,7 @@ export function transferAdmission(admissionId: string, input: { toBedId: string;
   return api.post<IpdAdmission>(`/ipd/admissions/${admissionId}/transfer`, input);
 }
 
-export function dischargePatient(admissionId: string, input: { diagnosis?: string; dischargeType?: string }) {
+export function dischargePatient(admissionId: string, input: { doctorId?: string; diagnosis?: string; dischargeType?: string }) {
   return api.patch<IpdAdmission>(`/ipd/admissions/${admissionId}/discharge`, input);
 }
 

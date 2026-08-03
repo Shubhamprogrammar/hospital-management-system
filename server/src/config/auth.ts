@@ -21,6 +21,7 @@ export const ROLES = {
   INVENTORY_MANAGER: "INVENTORY_MANAGER",
   AMBULANCE_DISPATCHER: "AMBULANCE_DISPATCHER",
   AMBULANCE_DRIVER: "AMBULANCE_DRIVER",
+  WARD_BOY: "WARD_BOY",
   ACCOUNTANT: "ACCOUNTANT",
   IT_SUPPORT: "IT_SUPPORT",
   PATIENT: "PATIENT",
@@ -47,6 +48,7 @@ export const ROLE_HIERARCHY: Record<Role, number> = {
   IT_SUPPORT: 30,
   RECEPTIONIST: 30,
   AMBULANCE_DRIVER: 25,
+  WARD_BOY: 30,
   PATIENT: 10,
 };
 
@@ -232,6 +234,12 @@ export const auth = betterAuth({
         }),
         [ROLES.AMBULANCE_DRIVER]: ac.newRole({
           patients: ["read"],
+          profile: ["read", "update"],
+        }),
+        [ROLES.WARD_BOY]: ac.newRole({
+          patients: ["read"],
+          appointments: ["read"],
+          vitals: ["read"],
           profile: ["read", "update"],
         }),
         [ROLES.IT_SUPPORT]: ac.newRole({

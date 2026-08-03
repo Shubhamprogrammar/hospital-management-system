@@ -45,7 +45,7 @@ export function getPrescriptionPdf(id: string) {
   return api.get<{ url: string }>(`/prescriptions/${id}/pdf`);
 }
 
-export function renewPrescription(id: string, input?: { notes?: string }) {
+export function renewPrescription(id: string, input?: { doctorId?: string; notes?: string }) {
   return api.post<Prescription>(`/prescriptions/${id}/renew`, input);
 }
 
@@ -76,15 +76,15 @@ export function getAiSuggestion(id: string) {
   return api.get<AiPrescriptionSuggestion>(`/ai-prescriptions/${id}`);
 }
 
-export function acceptAiSuggestion(id: string) {
-  return api.post<AiPrescriptionSuggestion>(`/ai-prescriptions/${id}/accept`);
+export function acceptAiSuggestion(id: string, input?: { doctorId?: string }) {
+  return api.post<AiPrescriptionSuggestion>(`/ai-prescriptions/${id}/accept`, input);
 }
 
 export function editAiSuggestion(id: string, input: { suggestedItems?: unknown; diagnosisText?: string }) {
   return api.patch<AiPrescriptionSuggestion>(`/ai-prescriptions/${id}/edit`, input);
 }
 
-export function rejectAiSuggestion(id: string, input?: { reason?: string }) {
+export function rejectAiSuggestion(id: string, input?: { doctorId?: string; reason?: string }) {
   return api.post<AiPrescriptionSuggestion>(`/ai-prescriptions/${id}/reject`, input);
 }
 

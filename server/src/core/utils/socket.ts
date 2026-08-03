@@ -1,6 +1,7 @@
 import type { Server as HttpServer } from "http";
 import { Server, type Socket } from "socket.io";
 import { auth } from "../../config/auth.js";
+import { env } from "../../config/env.js";
 import { logger } from "./logger.js";
 
 let io: Server | null = null;
@@ -18,7 +19,9 @@ let io: Server | null = null;
  */
 export function setupSocket(httpServer: HttpServer): Server {
   io = new Server(httpServer, {
-    cors: { origin: "*", methods: ["GET", "POST"] },
+    // Credentials (cookies) are used for auth, so the origin must be explicit
+    // (a wildcard is rejected by browsers for credentialed requests).
+    cors: { origin: env.CLIENT_URL, credentials: true, methods: ["GET", "POST"] },
   });
 
   io.use(async (socket, next) => {

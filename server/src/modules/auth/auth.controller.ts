@@ -80,6 +80,7 @@ export const createUserHandler = catchAsync(
       ROLES.PHARMACIST,
       ROLES.ACCOUNTANT,
       ROLES.RECEPTIONIST,
+      ROLES.WARD_BOY,
     ];
 
     // SUPER_ADMIN can create any role; HOSPITAL_ADMIN can only create staff roles

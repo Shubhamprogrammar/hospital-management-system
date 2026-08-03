@@ -77,13 +77,13 @@ const ambulanceStat = { label: "Ambulance Requests", href: "/ambulance", icon: A
 const prescriptionsStat = { label: "Prescriptions", href: "/prescriptions", icon: FileTextIcon, scope: "prescriptions" as const };
 
 const ACCENTS = {
-  indigo: "from-indigo-500 via-violet-500 to-cyan-400",
-  teal: "from-teal-500 via-emerald-500 to-cyan-400",
-  rose: "from-rose-500 via-pink-500 to-orange-400",
+  indigo: "from-sky-600 via-blue-600 to-cyan-400",
+  teal: "from-teal-600 via-cyan-600 to-sky-400",
+  rose: "from-rose-500 via-red-500 to-amber-400",
   amber: "from-amber-500 via-orange-500 to-rose-400",
-  sky: "from-sky-500 via-indigo-500 to-violet-400",
-  emerald: "from-emerald-500 via-teal-500 to-cyan-400",
-  violet: "from-violet-500 via-fuchsia-500 to-rose-400",
+  sky: "from-blue-600 via-sky-500 to-cyan-400",
+  emerald: "from-emerald-600 via-teal-600 to-cyan-400",
+  violet: "from-blue-700 via-indigo-600 to-cyan-500",
 } as const;
 
 const dashboards: Record<string, RoleDashboardConfig> = {
@@ -143,6 +143,21 @@ const dashboards: Record<string, RoleDashboardConfig> = {
       { label: "IPD Admissions", href: "/ipd", icon: BedDoubleIcon },
       { label: "Wards", href: "/wards", icon: BedDoubleIcon },
       { label: "Beds", href: "/beds", icon: BedDoubleIcon },
+      { label: "OPD Queue", href: "/opd", icon: ClipboardListIcon },
+    ],
+    panels: ["admissions", "opdQueue", "appointments"],
+  },
+  ward: {
+    kind: "ward",
+    eyebrow: "Ward services",
+    title: "Wards & beds",
+    description: "Bed availability, IPD admissions, and your assigned ward activity.",
+    accent: ACCENTS.emerald,
+    stats: [admissionsStat, appointmentsStat, opdWaitingStat],
+    quickActions: [
+      { label: "Wards", href: "/wards", icon: BedDoubleIcon },
+      { label: "Beds", href: "/beds", icon: BedDoubleIcon },
+      { label: "IPD Admissions", href: "/ipd", icon: BedDoubleIcon },
       { label: "OPD Queue", href: "/opd", icon: ClipboardListIcon },
     ],
     panels: ["admissions", "opdQueue", "appointments"],
@@ -271,6 +286,7 @@ export const ROLE_DASHBOARD: Record<Role, RoleDashboardConfig> = {
   [ROLES.INVENTORY_MANAGER]: dashboards.inventory,
   [ROLES.AMBULANCE_DISPATCHER]: dashboards.dispatch,
   [ROLES.AMBULANCE_DRIVER]: dashboards.driver,
+  [ROLES.WARD_BOY]: dashboards.ward,
   [ROLES.IT_SUPPORT]: dashboards.support,
   [ROLES.PATIENT]: dashboards.patient,
 };

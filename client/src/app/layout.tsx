@@ -15,6 +15,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${fontVariables} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        {/* Apply persisted theme before paint to avoid a flash of the wrong theme. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("hms-theme");var r=document.documentElement;var d=window.matchMedia("(prefers-color-scheme: dark)").matches;var resolved=t==="dark"?"dark":t==="light"?"light":(d?"dark":"light");r.classList.toggle("dark",resolved==="dark");r.setAttribute("data-theme",resolved);r.style.colorScheme=resolved;}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <Provider>{children}</Provider>
       </body>

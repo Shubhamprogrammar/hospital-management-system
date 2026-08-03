@@ -47,7 +47,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Patients",
         href: "/patients",
         icon: UsersIcon,
-        minRoles: [ROLES.RECEPTIONIST, ROLES.NURSE, ROLES.DOCTOR, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.RECEPTIONIST, ROLES.NURSE, ROLES.DOCTOR, ROLES.WARD_BOY, ROLES.HOSPITAL_ADMIN],
       },
       {
         label: "Appointments",
@@ -82,19 +82,19 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "IPD Admissions",
         href: "/ipd",
         icon: BedDoubleIcon,
-        minRoles: [ROLES.DOCTOR, ROLES.NURSE, ROLES.RECEPTIONIST, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.DOCTOR, ROLES.NURSE, ROLES.RECEPTIONIST, ROLES.WARD_BOY, ROLES.HOSPITAL_ADMIN],
       },
       {
         label: "Wards",
         href: "/wards",
         icon: Building2Icon,
-        minRoles: [ROLES.NURSE, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.NURSE, ROLES.WARD_BOY, ROLES.HOSPITAL_ADMIN],
       },
       {
         label: "Beds",
         href: "/beds",
         icon: BedDoubleIcon,
-        minRoles: [ROLES.NURSE, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.NURSE, ROLES.WARD_BOY, ROLES.HOSPITAL_ADMIN],
       },
       {
         label: "Prescriptions",

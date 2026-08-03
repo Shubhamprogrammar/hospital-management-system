@@ -7,6 +7,7 @@ import { MagneticButton } from "@/shared/components/motion/MagneticButton";
 import { GradientText } from "@/shared/components/gradient/GradientText";
 import { GradientBorderCard } from "@/shared/components/gradient/GradientBorderCard";
 import { Button } from "@/shared/components/ui/button";
+import { ThemeToggle } from "@/shared/components/layout/ThemeToggle";
 import { Badge } from "@/shared/components/ui/badge";
 import Hero3DSceneLazy from "@/shared/components/three/Hero3DSceneLazy";
 
@@ -38,28 +39,29 @@ export default function LandingPage() {
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
         <div className="animate-aurora absolute -top-32 left-1/4 size-[36rem] rounded-full bg-[radial-gradient(circle_at_center,var(--glow-primary),transparent_65%)] blur-3xl" />
         <div className="animate-aurora absolute top-1/3 -right-32 size-[32rem] rounded-full bg-[radial-gradient(circle_at_center,var(--glow-cyan),transparent_65%)] blur-3xl" style={{ animationDelay: "-6s" }} />
-        <div className="animate-aurora absolute -bottom-40 -left-24 size-[34rem] rounded-full bg-[radial-gradient(circle_at_center,var(--glow-indigo),transparent_65%)] blur-3xl" style={{ animationDelay: "-3s" }} />
+        <div className="animate-aurora absolute -bottom-40 -left-24 size-[34rem] rounded-full bg-[radial-gradient(circle_at_center,var(--glow-navy),transparent_65%)] blur-3xl" style={{ animationDelay: "-3s" }} />
       </div>
 
       {/* Nav */}
-      <header className="flex items-center justify-between px-6 py-5 md:px-12">
+      <header className="flex items-center justify-between px-6 py-5 md:px-12 bg-gradient-brand-soft border-rounded-b-3xl shadow-lg">
         <div className="flex items-center gap-2">
           <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-brand text-primary-foreground shadow-lg">
             <ActivityIcon className="size-5" />
           </div>
           <span className="text-lg font-semibold tracking-tight">MediCore<span className="text-gradient-brand">HMS</span></span>
         </div>
-        <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
+        <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex ">
           <a href="#features" className="transition-colors hover:text-foreground">Features</a>
           <a href="#stats" className="transition-colors hover:text-foreground">Platform</a>
           <a href="#cta" className="transition-colors hover:text-foreground">Get started</a>
         </nav>
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <Link href="/login">
-            <Button variant="ghost" size="sm">Sign in</Button>
+            <Button  className="bg-gradient-brand shadow-lg" size="sm">Sign in</Button>
           </Link>
           <Link href="/register">
-            <Button size="sm" className="bg-gradient-brand">Get started</Button>
+            <Button size="sm" className="bg-gradient-brand shadow-lg">Get started</Button>
           </Link>
         </div>
       </header>
@@ -74,7 +76,7 @@ export default function LandingPage() {
             <BellIcon className="size-3" /> Realtime care coordination
           </Badge>
           <h1 className="text-4xl font-semibold leading-[1.08] tracking-tight md:text-6xl">
-            <SplitWords text="The hospital operating system for" />{" "}
+            <SplitWords text="The hospital operating system for modern care teams" />
             <GradientText className="text-4xl font-semibold leading-[1.08] tracking-tight md:text-6xl">
               <SplitWords text="modern care teams" />
             </GradientText>
@@ -90,19 +92,19 @@ export default function LandingPage() {
               </MagneticButton>
             </Link>
             <Link href="/login">
-              <Button variant="outline" size="lg">Explore the demo</Button>
+              <MagneticButton className="inline-flex h-11 items-center gap-2 rounded-md bg-gradient-brand px-6 text-sm font-medium text-white shadow-lg transition-opacity hover:opacity-90" >Explore the demo</MagneticButton>
             </Link>
           </div>
         </div>
       </AnimatedHero>
 
       {/* Feature grid */}
-      <section id="features" className="mx-auto max-w-7xl px-6 py-20 md:px-12">
-        <AnimatedHero className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <section id="features" className="mx-auto max-w-7xl px-6 py-20 md:px-12 ">
+        <AnimatedHero className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 ">
           {FEATURES.map((feature) => {
             const Icon = feature.icon;
             return (
-              <GradientBorderCard key={feature.title} animated className="h-full">
+              <GradientBorderCard key={feature.title} animated className="h-full bg-gradient-brand-soft shadow-lg transition-transform hover:-translate-y-1">
                 <div className="flex h-full flex-col gap-4 p-6">
                   <div className="flex size-11 items-center justify-center rounded-xl bg-gradient-brand-soft text-primary">
                     <Icon className="size-5" />
@@ -132,7 +134,7 @@ export default function LandingPage() {
 
       {/* CTA */}
       <section id="cta" className="mx-auto max-w-7xl px-6 py-24 md:px-12">
-        <AnimatedHero className="relative overflow-hidden rounded-3xl border border-border p-10 text-center md:p-16">
+        <AnimatedHero className="relative overflow-hidden rounded-3xl border border-border p-10 text-center md:p-16 bg-gradient-brand-soft shadow-lg">
           <div aria-hidden className="absolute inset-0 -z-10">
             <div className="animate-aurora absolute -top-20 left-1/3 size-96 rounded-full bg-[radial-gradient(circle_at_center,var(--glow-primary),transparent_65%)] blur-3xl" />
           </div>
@@ -154,13 +156,13 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border">
+      <footer className="border-t border-border bg-gradient-brand">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-8 text-sm text-muted-foreground md:flex-row md:px-12">
           <div className="flex items-center gap-2">
             <ActivityIcon className="size-4 text-primary" />
-            <span>MediCore HMS</span>
+            <span className="font-semibold text-white">MediCore HMS</span>
           </div>
-          <p>Built for hospitals that care. © {new Date().getFullYear()} MediCore Health.</p>
+          <p className="font-semibold text-white">Built for hospitals that care. © {new Date().getFullYear()} MediCore Health.</p>
         </div>
       </footer>
     </main>
