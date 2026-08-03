@@ -45,7 +45,7 @@ function DistortedCore() {
       <Float speed={1.4} rotationIntensity={0.4} floatIntensity={0.8}>
         <mesh scale={1.6}>
           <icosahedronGeometry args={[1, 4]} />
-          <MeshDistortMaterial color="#6d5cff" emissive="#4338ca" emissiveIntensity={0.35} roughness={0.15} metalness={0.65} distort={0.35} speed={1.6} />
+          <MeshDistortMaterial color="#0ea5e9" emissive="#0369a1" emissiveIntensity={0.4} roughness={0.15} metalness={0.65} distort={0.35} speed={1.6} />
         </mesh>
         <mesh scale={2.6}>
           <icosahedronGeometry args={[1, 1]} />
@@ -60,7 +60,7 @@ function DistortedCore() {
 function Starfield() {
   return (
     <Points positions={STAR_POSITIONS} stride={3} frustumCulled>
-      <PointMaterial transparent color="#7c3aed" size={0.02} sizeAttenuation depthWrite={false} opacity={0.5} />
+      <PointMaterial transparent color="#22d3ee" size={0.02} sizeAttenuation depthWrite={false} opacity={0.5} />
     </Points>
   );
 }

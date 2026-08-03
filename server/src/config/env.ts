@@ -17,7 +17,7 @@ const envSchema = z.object({
   BETTER_AUTH_URL: z.string().url(),
 
   // CORS
-  CLIENT_URL: z.string().url().default("http://localhost:5173"),
+  CLIENT_URL: z.string().url().default("http://localhost:3000"),
 });
 
 function validateEnv() {

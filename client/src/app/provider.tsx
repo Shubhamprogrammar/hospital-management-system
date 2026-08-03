@@ -8,6 +8,26 @@ import { Toaster } from "react-hot-toast";
 
 import { store } from "@/shared/store";
 import { SocketProvider } from "@/shared/lib/hooks/useSocket";
+import { ThemeProvider, useTheme } from "@/shared/lib/theme";
+
+/** Toaster that adapts to the active theme. */
+function ThemedToaster() {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  return (
+    <Toaster
+      position="top-right"
+      toastOptions={{
+        duration: 4000,
+        style: {
+          background: isDark ? "var(--card)" : "#ffffff",
+          color: "var(--foreground)",
+          border: "1px solid var(--border)",
+        },
+      }}
+    />
+  );
+}
 
 export default function Provider({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -25,13 +45,15 @@ export default function Provider({ children }: { children: ReactNode }) {
 
   return (
     <ReduxProvider store={store}>
-      <QueryClientProvider client={queryClient}>
-        <SocketProvider>
-          {children}
-          <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
-        </SocketProvider>
-        <ReactQueryDevtools initialIsOpen={false} />
-      </QueryClientProvider>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <SocketProvider>
+            {children}
+            <ThemedToaster />
+          </SocketProvider>
+          <ReactQueryDevtools initialIsOpen={false} />
+        </QueryClientProvider>
+      </ThemeProvider>
     </ReduxProvider>
   );
 }

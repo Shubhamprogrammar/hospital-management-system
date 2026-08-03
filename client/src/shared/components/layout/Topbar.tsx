@@ -16,6 +16,7 @@ import {
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { Sheet, SheetContent, SheetTitle } from "@/shared/components/ui/sheet";
 import { Sidebar } from "@/shared/components/layout/Sidebar";
+import { ThemeToggle } from "@/shared/components/layout/ThemeToggle";
 import { signOut, useSession } from "@/shared/lib/auth-client";
 import { useNotifications } from "@/shared/lib/hooks/useNotifications";
 import { useAppDispatch, useAppSelector } from "@/shared/store/hooks";
@@ -69,6 +70,8 @@ export function Topbar() {
       <div className="hidden md:block" />
 
       <div className="flex items-center gap-2">
+        <ThemeToggle />
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
@@ -76,7 +79,7 @@ export function Topbar() {
               {unread > 0 && (
                 <Badge
                   variant="default"
-                  className="absolute -top-1 -right-1 h-4 min-w-4 rounded-full px-1 text-[10px]"
+                  className="absolute -top-1 -right-1 h-4 min-w-4 rounded-full bg-gradient-brand px-1 text-[10px] text-white"
                 >
                   {unread > 9 ? "9+" : unread}
                 </Badge>
@@ -119,7 +122,7 @@ export function Topbar() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2 px-2">
-              <Avatar className="size-7 bg-gradient-brand text-primary-foreground">
+              <Avatar className="size-7 bg-gradient-brand text-white">
                 <AvatarFallback className="bg-transparent text-inherit">{initials(user?.name)}</AvatarFallback>
               </Avatar>
               <span className="hidden text-sm font-medium sm:inline">{user?.name ?? "Account"}</span>

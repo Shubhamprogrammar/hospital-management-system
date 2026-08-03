@@ -87,12 +87,12 @@ export function startConsultation(id: string) {
   return api.patch<OpdVisit>(`/opd/visits/${id}/start-consultation`);
 }
 
-export function saveDiagnosis(id: string, input: { icd10Code: string; description?: string; notes?: string }) {
+export function saveDiagnosis(id: string, input: { doctorId?: string; icd10Code: string; description?: string; notes?: string }) {
   return api.patch<OpdDiagnosis>(`/opd/visits/${id}/diagnosis`, input);
 }
 
-export function closeOpdVisit(id: string) {
-  return api.patch<OpdVisit>(`/opd/visits/${id}/close`);
+export function closeOpdVisit(id: string, input?: { doctorId?: string }) {
+  return api.patch<OpdVisit>(`/opd/visits/${id}/close`, input);
 }
 
 export function referToIpd(id: string, input?: { reason?: string; wardType?: string }) {

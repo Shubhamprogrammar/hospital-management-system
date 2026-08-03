@@ -18,7 +18,7 @@ bedsRoutes.get("/", listBedsHandler);
 bedsRoutes.get("/:id", getBedHandler);
 bedsRoutes.patch(
   "/:id/status",
-  authorize("SUPER_ADMIN", "HOSPITAL_ADMIN", "NURSE"),
+  authorize("SUPER_ADMIN", "HOSPITAL_ADMIN", "NURSE", "WARD_BOY"),
   changeBedStatusHandler,
 );
 bedsRoutes.delete("/:id", authorize("SUPER_ADMIN", "HOSPITAL_ADMIN"), removeBedHandler);

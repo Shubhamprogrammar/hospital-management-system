@@ -17,7 +17,7 @@ chatRoutes.use(authMiddleware);
 // Internal staff only (FRD 25.3 — not exposed to PATIENT)
 chatRoutes.post(
   "/conversations",
-  authorize("SUPER_ADMIN", "HOSPITAL_ADMIN", "DOCTOR", "NURSE", "RECEPTIONIST", "LAB_TECHNICIAN", "PHARMACIST", "BILLING_STAFF", "INVENTORY_MANAGER", "AMBULANCE_DISPATCHER", "AMBULANCE_DRIVER", "IT_SUPPORT"),
+  authorize("SUPER_ADMIN", "HOSPITAL_ADMIN", "DOCTOR", "NURSE", "RECEPTIONIST", "LAB_TECHNICIAN", "PHARMACIST", "BILLING_STAFF", "INVENTORY_MANAGER", "AMBULANCE_DISPATCHER", "AMBULANCE_DRIVER", "WARD_BOY", "IT_SUPPORT"),
   createConversationHandler,
 );
 chatRoutes.get("/conversations", listConversationsHandler);
