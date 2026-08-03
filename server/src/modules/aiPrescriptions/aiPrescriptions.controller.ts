@@ -36,7 +36,8 @@ export const getSuggestionHandler = catchAsync(async (req: Request, res: Respons
 
 export const acceptSuggestionHandler = catchAsync(async (req: Request, res: Response) => {
   const actor = (req as any).user;
-  const result = await acceptSuggestion(req.params.id, actor?.id);
+  const doctorId = await resolveDoctorId(actor?.id, req.body.doctorId, "accepting AI suggestions");
+  const result = await acceptSuggestion(req.params.id, doctorId);
   writeAuditLog(
     {
       actorId: actor?.id,

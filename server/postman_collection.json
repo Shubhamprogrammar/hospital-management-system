@@ -12,6 +12,10 @@
       "value": "http://localhost:8080"
     },
     {
+      "key": "clientUrl",
+      "value": "http://localhost:5173"
+    },
+    {
       "key": "adminEmail",
       "value": "admin@hospital.com"
     },
@@ -183,6 +187,11 @@
                 "key": "Content-Type",
                 "value": "application/json",
                 "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{clientUrl}}",
+                "type": "text"
               }
             ],
             "url": {
@@ -217,6 +226,11 @@
               {
                 "key": "Content-Type",
                 "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{clientUrl}}",
                 "type": "text"
               }
             ],
@@ -1768,7 +1782,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"notes\": \"Patient stable, continue current treatment\"\n}",
+              "raw": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"notes\": \"Patient stable, continue current treatment\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1876,7 +1890,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"diagnosis\": \"Pneumonia\",\n  \"treatmentSummary\": \"IV antibiotics x 5 days\",\n  \"followUpInstructions\": \"Review in 1 week\"\n}",
+              "raw": "{\n  \"diagnosis\": \"Pneumonia\",\n  \"treatmentSummary\": \"IV antibiotics x 5 days\",\n  \"followUpInstructions\": \"Review in 1 week\",\n  \"doctorId\": \"{{doctorId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2450,7 +2464,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"opdVisitId\": \"{{visitId}}\",\n  \"items\": [\n    {\n      \"drugId\": \"{{drugId}}\",\n      \"dosage\": \"1 tab\",\n      \"frequency\": \"BD\",\n      \"durationDays\": 5,\n      \"route\": \"ORAL\",\n      \"instructions\": \"After meals\"\n    }\n  ],\n  \"notes\": \"For fever\",\n  \"acknowledgedWarnings\": true\n}",
+              "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"doctorId\": \"{{doctorId}}\",\n  \"opdVisitId\": \"{{visitId}}\",\n  \"items\": [\n    {\n      \"drugId\": \"{{drugId}}\",\n      \"dosage\": \"1 tab\",\n      \"frequency\": \"BD\",\n      \"durationDays\": 5,\n      \"route\": \"ORAL\",\n      \"instructions\": \"After meals\"\n    }\n  ],\n  \"notes\": \"For fever\",\n  \"acknowledgedWarnings\": true\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2520,7 +2534,13 @@
           "name": "Renew Prescription",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/prescriptions/{{prescriptionId}}/renew",
               "host": [
@@ -2533,6 +2553,15 @@
                 "{{prescriptionId}}",
                 "renew"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctorId\": \"{{doctorId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         }
@@ -2566,7 +2595,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"opdVisitId\": \"{{visitId}}\",\n  \"diagnosisText\": \"Acute upper respiratory tract infection with fever\",\n  \"symptoms\": [\n    \"fever\",\n    \"cough\",\n    \"sore throat\"\n  ]\n}",
+              "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"doctorId\": \"{{doctorId}}\",\n  \"opdVisitId\": \"{{visitId}}\",\n  \"diagnosisText\": \"Acute upper respiratory tract infection with fever\",\n  \"symptoms\": [\n    \"fever\",\n    \"cough\",\n    \"sore throat\"\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2611,6 +2640,15 @@
                 "{{suggestionId}}",
                 "accept"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctorId\": \"{{doctorId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         },
@@ -2640,7 +2678,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"items\": [\n    {\n      \"drugId\": \"{{drugId}}\",\n      \"dosage\": \"1 tab\",\n      \"frequency\": \"OD\",\n      \"durationDays\": 3\n    }\n  ]\n}",
+              "raw": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"items\": [\n    {\n      \"drugId\": \"{{drugId}}\",\n      \"dosage\": \"1 tab\",\n      \"frequency\": \"OD\",\n      \"durationDays\": 3\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2675,7 +2713,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reason\": \"Patient allergic\"\n}",
+              "raw": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"reason\": \"Patient allergic\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2733,7 +2771,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"opdVisitId\": \"{{visitId}}\",\n  \"testIds\": [\n    \"{{testId}}\"\n  ]\n}",
+              "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"doctorId\": \"{{doctorId}}\",\n  \"opdVisitId\": \"{{visitId}}\",\n  \"testIds\": [\n    \"{{testId}}\"\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"

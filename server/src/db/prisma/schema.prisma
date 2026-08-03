@@ -1521,7 +1521,7 @@ model CashReconciliation {
 
 model ReportTemplate {
   id              String   @id @default(uuid())
-  name            String
+  name            String   @unique
   module          String
   description     String?
   queryDefinition Json?

@@ -106,7 +106,18 @@ export const transferAdmissionHandler = catchAsync(async (req: Request, res: Res
 
 export const dischargePatientHandler = catchAsync(async (req: Request, res: Response) => {
   const actor = (req as any).user;
-  const admission = await dischargePatient(req.params.id, { ...req.body, signedBy: actor?.id });
+  // DischargeSummary.signedBy references Doctor.id (not User.id). Resolve the
+  // signing doctor when the actor has one (or an explicit doctorId is given),
+  // otherwise omit it so the service falls back to the admitting doctor —
+  // admins/reception staff can discharge without a doctor profile.
+  let signedBy: string | undefined;
+  try {
+    signedBy = await resolveDoctorId(actor?.id, req.body.doctorId, "signing the discharge summary");
+  } catch (e) {
+    if (e instanceof AppError && e.code === "ERR_DOCTOR_PROFILE_REQUIRED") signedBy = undefined;
+    else throw e;
+  }
+  const admission = await dischargePatient(req.params.id, { ...req.body, signedBy });
   writeAuditLog(
     {
       actorId: actor?.id,
