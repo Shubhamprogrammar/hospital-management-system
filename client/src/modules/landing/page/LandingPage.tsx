@@ -92,7 +92,7 @@ export default function LandingPage() {
               </MagneticButton>
             </Link>
             <Link href="/login">
-              <MagneticButton className="inline-flex h-11 items-center gap-2 rounded-md bg-gradient-brand px-6 text-sm font-medium text-white shadow-lg transition-opacity hover:opacity-90" size="lg">Explore the demo</MagneticButton>
+              <MagneticButton className="inline-flex h-11 items-center gap-2 rounded-md bg-gradient-brand px-6 text-sm font-medium text-white shadow-lg transition-opacity hover:opacity-90" >Explore the demo</MagneticButton>
             </Link>
           </div>
         </div>
