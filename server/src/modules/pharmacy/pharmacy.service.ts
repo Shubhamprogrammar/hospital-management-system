@@ -178,9 +178,9 @@ export async function getDispenseDetail(id: string) {
           drug: { select: { id: true, name: true } },
           batch: { select: { id: true, batchNo: true, expiryDate: true } },
           substitutedFromDrug: { select: { id: true, name: true } },
+          returns: true,
         },
       },
-      returns: true,
     },
   });
   if (!dispense) throw new AppError("Dispense not found", 404, undefined, "NOT_FOUND");
