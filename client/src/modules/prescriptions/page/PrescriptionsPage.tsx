@@ -150,7 +150,7 @@ export default function PrescriptionsPage() {
                 <FormItem><FormLabel>Notes</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <div className="space-y-2">
-                <FormLabel>Items</FormLabel>
+                <p className="text-sm font-medium">Items</p>
                 {watchedItems.map((_, index) => (
                   <div key={index} className="grid grid-cols-2 gap-2 rounded-md border border-border p-2">
                     <FormField control={form.control} name={`items.${index}.drugName`} render={({ field }) => (

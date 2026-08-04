@@ -89,8 +89,8 @@ export const auth = betterAuth({
   // Base path matches our Express mount point
   basePath: "/api/v1/auth",
 
-  // Trusted origins for CORS
-  trustedOrigins: [env.CLIENT_URL],
+  // Trusted origins for CORS/CSRF (must match the Express CORS list in app.ts)
+  trustedOrigins: env.clientUrls,
 
   // Email/password authentication
   emailAndPassword: {

@@ -180,7 +180,7 @@ export default function BillingPage() {
                 </FormItem>
               )} />
               <div className="space-y-2">
-                <FormLabel>Line items</FormLabel>
+                <p className="text-sm font-medium">Line items</p>
                 {watchedItems.map((_, index) => (
                   <div key={index} className="grid grid-cols-[1fr_70px_100px_120px] items-center gap-2">
                     <FormField control={form.control} name={`items.${index}.description`} render={({ field }) => (
@@ -248,7 +248,7 @@ function DiscountForm({ onSubmit }: { onSubmit: (percentage: number) => void }) 
       className="flex flex-col gap-4"
     >
       <div className="grid gap-1.5">
-        <FormLabel>Discount %</FormLabel>
+        <p className="text-sm font-medium">Discount %</p>
         <Input type="number" min={0} max={100} value={value} onChange={(e) => setValue(e.target.value)} />
       </div>
       <DialogFooter>

@@ -21,7 +21,7 @@ export function setupSocket(httpServer: HttpServer): Server {
   io = new Server(httpServer, {
     // Credentials (cookies) are used for auth, so the origin must be explicit
     // (a wildcard is rejected by browsers for credentialed requests).
-    cors: { origin: env.CLIENT_URL, credentials: true, methods: ["GET", "POST"] },
+    cors: { origin: env.clientUrls, credentials: true, methods: ["GET", "POST"] },
   });
 
   io.use(async (socket, next) => {

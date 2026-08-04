@@ -8,7 +8,11 @@ import { env } from "../config/env";
  * signUp.email()/etc. accept them with full type safety.
  */
 export const authClient = createAuthClient({
-  baseURL: env.AUTH_URL,
+  // Same-origin auth: better-auth resolves `basePath` against
+  // window.location.origin, and next.config.ts rewrites /api/v1/auth/* to the
+  // backend — so session cookies stay first-party on the app's own domain.
+  // (A relative `baseURL` string is rejected by the client; it must be absolute.)
+  basePath: env.AUTH_PATH,
   plugins: [
     adminClient(),
     inferAdditionalFields({

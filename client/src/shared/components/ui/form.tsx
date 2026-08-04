@@ -40,13 +40,16 @@ function FormField<
 function useFormField() {
   const fieldContext = React.useContext(FormFieldContext);
   const itemContext = React.useContext(FormItemContext);
+  // Guard BEFORE reading context values — previously the null dereference
+  // happened first, producing a confusing "Cannot read properties of null"
+  // TypeError (and crashing the whole page) instead of this clear error.
+  if (!fieldContext || !itemContext) {
+    throw new Error("useFormField should be used within <FormField>");
+  }
   const { getFieldState } = useFormContext();
-  const formState = useFormState({ name: fieldContext?.name });
-  const fieldState = getFieldState(fieldContext!.name, formState);
-
-  if (!fieldContext) throw new Error("useFormField should be used within <FormField>");
-
-  const { id } = itemContext!;
+  const formState = useFormState({ name: fieldContext.name });
+  const fieldState = getFieldState(fieldContext.name, formState);
+  const { id } = itemContext;
 
   return {
     id,

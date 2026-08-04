@@ -39,7 +39,7 @@ export function LoginPage() {
             <span className="text-lg font-semibold tracking-tight">MediCore<span className="text-gradient-brand">HMS</span></span>
           </div>
 
-          <Card className="border-border/70 shadow-card-hover">
+          <Card className="border-border/70 shadow-card-hover p-6 lg:border ">
             <CardHeader>
               <CardTitle className="text-lg">Sign in to your account</CardTitle>
               <CardDescription>Use your hospital staff or patient credentials.</CardDescription>
@@ -55,7 +55,7 @@ export function LoginPage() {
               <div className="mt-6 flex items-center justify-center">
                 <Link
                   href="/"
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
                 >
                   Back to homepage <ArrowRightIcon className="size-3.5" />
                 </Link>
