@@ -252,9 +252,17 @@ export async function mergePatients(data: {
   });
 }
 
+interface PatientTimelineEntry {
+  type: string;
+  referenceId: string;
+  description: string;
+  occurredAt: string;
+}
+
 /**
- * Aggregated patient timeline (FR 9.4-07): appointments, visits, labs, prescriptions.
- * Reads from Mongo activity_logs + Postgres in a single call.
+ * Aggregated patient timeline (FR 9.4-07): appointments, visits, labs,
+ * prescriptions, admissions — flattened into a single reverse-chronological
+ * list matching the client's `PatientTimelineEntry[]` contract.
  */
 export async function getPatientTimeline(patientId: string) {
   const cacheKey = `patient:${patientId}:timeline`;
@@ -266,7 +274,7 @@ export async function getPatientTimeline(patientId: string) {
       where: { patientId },
       orderBy: { appointmentDate: "desc" },
       take: 50,
-      select: { id: true, appointmentDate: true, slotStartTime: true, status: true, mode: true, doctor: { select: { user: { select: { name: true } } } } },
+      select: { id: true, appointmentDate: true, status: true, mode: true, doctor: { select: { user: { select: { name: true } } } } },
     }),
     prisma.opdVisit.findMany({
       where: { patientId },
@@ -294,9 +302,41 @@ export async function getPatientTimeline(patientId: string) {
     }),
   ]);
 
-  const timeline = { appointments, visits, labs, prescriptions, admissions };
-  await cacheSet(cacheKey, JSON.stringify(timeline), 300); // 5 min TTL
-  return timeline;
+  const entries: PatientTimelineEntry[] = [
+    ...appointments.map((a) => ({
+      type: "APPOINTMENT",
+      referenceId: a.id,
+      description: `Appointment ${a.status.toLowerCase()}${a.doctor?.user?.name ? ` with ${a.doctor.user.name}` : ""}${a.mode === "TELECONSULT" ? " (teleconsult)" : ""}`,
+      occurredAt: a.appointmentDate.toISOString(),
+    })),
+    ...visits.map((v) => ({
+      type: "OPD_VISIT",
+      referenceId: v.id,
+      description: `OPD visit ${v.status.toLowerCase()}${v.department?.name ? ` - ${v.department.name}` : ""}${v.tokenNumber ? ` (token #${v.tokenNumber})` : ""}`,
+      occurredAt: v.checkedInAt.toISOString(),
+    })),
+    ...labs.map((l) => ({
+      type: "LAB_ORDER",
+      referenceId: l.id,
+      description: `Lab order ${l.status.toLowerCase()}${l.orderTests.length ? `: ${l.orderTests.map((t) => t.test?.name).filter(Boolean).join(", ")}` : ""}`,
+      occurredAt: l.createdAt.toISOString(),
+    })),
+    ...prescriptions.map((p) => ({
+      type: "PRESCRIPTION",
+      referenceId: p.id,
+      description: `Prescription ${p.status.toLowerCase()}`,
+      occurredAt: p.createdAt.toISOString(),
+    })),
+    ...admissions.map((a) => ({
+      type: "ADMISSION",
+      referenceId: a.id,
+      description: `Admission ${a.admissionNo} ${a.status.toLowerCase()}${a.dischargedAt ? " (discharged)" : ""}`,
+      occurredAt: (a.dischargedAt ?? a.admittedAt).toISOString(),
+    })),
+  ].sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
+
+  await cacheSet(cacheKey, JSON.stringify(entries), 300); // 5 min TTL
+  return entries;
 }
 
 export async function getPatientByUser(userId: string) {
