@@ -14,6 +14,9 @@ import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Button } from "@/shared/components/ui/button";
 import { Switch } from "@/shared/components/ui/switch";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/shared/components/ui/dialog";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { Badge } from "@/shared/components/ui/badge";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
@@ -22,6 +25,8 @@ import {
   getBusinessRules, getHospitalProfile, getIntegrationCredentials, listFeatureFlags,
   setIntegrationCredential, toggleFeatureFlag, updateHospitalProfile, updateBusinessRule,
 } from "@/shared/services/platform.service";
+import { listMySessions, revokeSession, updateMe } from "@/shared/services/users.service";
+import { useSession } from "@/shared/lib/auth-client";
 import type { IntegrationProvider } from "@/shared/types/domain";
 
 export default function SettingsPage() {
@@ -50,7 +55,26 @@ export default function SettingsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const { data: session } = useSession();
+  const myUser = session?.user;
   const [configuring, setConfiguring] = useState<IntegrationProvider | null>(null);
+
+  const sessions = useQuery({ queryKey: ["auth", "sessions"], queryFn: () => listMySessions() });
+
+  const saveMe = useMutation({
+    mutationFn: (input: { name: string; phone?: string }) => updateMe(input),
+    onSuccess: () => { toast.success("Profile updated"); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const revoke = useMutation({
+    mutationFn: (sessionId: string) => revokeSession(sessionId),
+    onSuccess: () => {
+      toast.success("Session revoked");
+      queryClient.invalidateQueries({ queryKey: ["auth", "sessions"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const saveIntegration = useMutation({
     mutationFn: ({ provider, config }: { provider: IntegrationProvider; config: Record<string, string> }) =>
@@ -193,6 +217,77 @@ export default function SettingsPage() {
                     <p className="mt-0.5 text-xs text-muted-foreground">Updated {new Date(cred.updatedAt).toLocaleString()}</p>
                   </div>
                   <Button variant="outline" size="sm" onClick={() => setConfiguring(cred.provider)}>Update keys</Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* My account (self-service profile update) */}
+      <Card className="mt-6">
+        <CardHeader><CardTitle>My account</CardTitle></CardHeader>
+        <CardContent>
+          <form
+            className="grid max-w-lg gap-4 sm:grid-cols-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              saveMe.mutate({ name: String(formData.get("name")), phone: String(formData.get("phone") ?? "") || undefined });
+            }}
+          >
+            <div className="grid gap-1.5">
+              <Label htmlFor="me-name">Full name</Label>
+              <Input id="me-name" name="name" defaultValue={myUser?.name ?? ""} required />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="me-phone">Phone</Label>
+              <Input id="me-phone" name="phone" defaultValue={myUser?.phone ?? ""} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Email</Label>
+              <Input value={myUser?.email ?? ""} disabled />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Role</Label>
+              <Input value={(myUser?.role ?? "").replace(/_/g, " ")} disabled />
+            </div>
+            <Button type="submit" className="w-fit" disabled={saveMe.isPending}>
+              {saveMe.isPending ? "Saving…" : "Save profile"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* My active sessions */}
+      <Card className="mt-6">
+        <CardHeader><CardTitle>My sessions</CardTitle></CardHeader>
+        <CardContent>
+          {sessions.isLoading ? (
+            <div className="space-y-3">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : sessions.isError ? (
+            <ErrorState error={sessions.error} onRetry={() => sessions.refetch()} />
+          ) : (sessions.data ?? []).length === 0 ? (
+            <EmptyState icon={SettingsIcon} title="No active sessions" />
+          ) : (
+            <div className="space-y-2">
+              {sessions.data?.map((s) => (
+                <div key={s.id} className="flex items-center justify-between gap-4 rounded-md border border-border px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{s.userAgent || "Unknown device"}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {s.ipAddress ?? "Unknown IP"} · signed in {new Date(s.createdAt).toLocaleString()} · expires {new Date(s.expiresAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 text-destructive"
+                    disabled={revoke.isPending}
+                    onClick={() => revoke.mutate(s.id)}
+                  >
+                    Revoke
+                  </Button>
                 </div>
               ))}
             </div>

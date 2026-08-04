@@ -28,7 +28,8 @@ import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import { useListQuery } from "@/shared/lib/hooks/useListQuery";
 import {
-  checkInteractions, createPrescription, getPrescriptionPdf, listPrescriptions, renewPrescription,
+  checkInteractions, createPrescription, getPrescription, getPrescriptionPdf,
+  listPrescriptions, renewPrescription,
 } from "@/shared/services/clinical.service";
 import { searchPatients } from "@/shared/services/patients.service";
 import { listDoctors } from "@/shared/services/org.service";
@@ -41,6 +42,13 @@ export default function PrescriptionsPage() {
   const [interactionResult, setInteractionResult] = useState<{ safe: boolean; conflicts: unknown[] } | null>(null);
 
   const list = useListQuery<Prescription>({ queryKey: ["prescriptions"], queryFn: (params) => listPrescriptions(params) });
+
+  const [detailFor, setDetailFor] = useState<Prescription | null>(null);
+  const detail = useQuery({
+    queryKey: ["prescriptions", "detail", detailFor?.id],
+    queryFn: () => getPrescription(detailFor!.id),
+    enabled: !!detailFor,
+  });
 
   const patients = useQuery({ queryKey: ["patients", "options"], queryFn: () => searchPatients({ limit: 50 }) });
   const doctors = useQuery({ queryKey: ["doctors", "options"], queryFn: () => listDoctors({ limit: 50 }) });  const form = useForm<PrescriptionValues>({
@@ -137,6 +145,7 @@ export default function PrescriptionsPage() {
                   <TableCell className="text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="outline" onClick={() => setDetailFor(p)}>Details</Button>
                       {p.status === "ACTIVE" && (
                         <Button size="sm" variant="outline" onClick={() => setRenewFor(p)}>Renew</Button>
                       )}
@@ -253,6 +262,50 @@ export default function PrescriptionsPage() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detail dialog */}
+      <Dialog open={!!detailFor} onOpenChange={(o) => !o && setDetailFor(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Prescription details</DialogTitle>
+            <DialogDescription>
+              {detailFor?.patient?.name} · {detailFor?.doctor?.name ?? ""}
+            </DialogDescription>
+          </DialogHeader>
+          {detail.isLoading ? (
+            <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+          ) : detail.isError ? (
+            <ErrorState error={detail.error} onRetry={() => detail.refetch()} />
+          ) : detail.data ? (
+            <div className="flex flex-col gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-4">
+                <div><p className="text-muted-foreground">Status</p><StatusBadge status={detail.data.status} /></div>
+                <div><p className="text-muted-foreground">Created</p><p className="font-medium">{new Date(detail.data.createdAt).toLocaleString()}</p></div>
+              </div>
+              <div>
+                <p className="mb-2 text-muted-foreground">Items ({detail.data.items?.length ?? 0})</p>
+                <div className="space-y-2">
+                  {detail.data.items?.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                      <div>
+                        <p className="font-medium">{item.drug?.name ?? "Drug"}</p>
+                        <p className="text-xs text-muted-foreground">{item.dosage} · {item.frequency} · {item.durationDays}d</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">{item.route}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {detail.data.notes && (
+                <div>
+                  <p className="mb-1 text-muted-foreground">Notes</p>
+                  <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-3">{detail.data.notes}</p>
+                </div>
+              )}
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 

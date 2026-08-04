@@ -23,7 +23,8 @@ export function confirmUpload(id: string) {
 }
 
 export function getDownloadUrl(id: string) {
-  return api.get<{ url: string }>(`/uploads/${id}/download-url`);
+  // Server returns `downloadUrl` (signed URL stub in dev, real S3 URL in prod).
+  return api.get<{ fileId: string; downloadUrl: string; expiresIn: number }>(`/uploads/${id}/download-url`);
 }
 
 export function deleteUpload(id: string) {

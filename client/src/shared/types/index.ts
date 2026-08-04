@@ -24,6 +24,14 @@ export type Role = (typeof ROLES)[keyof typeof ROLES];
 export const ADMIN_ROLES: readonly Role[] = [ROLES.SUPER_ADMIN, ROLES.HOSPITAL_ADMIN];
 
 /**
+ * True if `role` is a system admin (SUPER_ADMIN / HOSPITAL_ADMIN) that
+ * implicitly has access to every module (mirrors server `authorize()`).
+ */
+export function isAdminRole(role: Role | undefined): boolean {
+  return role === ROLES.SUPER_ADMIN || role === ROLES.HOSPITAL_ADMIN;
+}
+
+/**
  * Genuine seniority check (same-track floor semantics): true if `role` meets or
  * exceeds the hierarchy level of a single senior role (e.g. `hasRoleAtLeast(role, ROLES.DOCTOR)`
  * = "doctor or anything more senior"). Only safe for single-role checks — see
@@ -45,23 +53,33 @@ export function hasRoleAtLeast(role: Role | undefined, ...allowed: Role[]): bool
 export function hasRole(role: Role | undefined, ...allowed: Role[]): boolean {
   if (!role) return false;
   if (allowed.length === 0) return true;
-  if (role === ROLES.SUPER_ADMIN || role === ROLES.HOSPITAL_ADMIN) return true;
+  if (isAdminRole(role)) return true;
   return allowed.includes(role);
 }
 
 /**
- * Direct set-membership authorization check — mirrors the server `authorize()`.
- * True if `role` is explicitly in `allowed`, or is an always-allowed admin
- * (SUPER_ADMIN / HOSPITAL_ADMIN). No numeric hierarchy floors, so lateral roles
- * sharing a level (LAB_TECHNICIAN/PHARMACIST/BILLING_STAFF) cannot reach each
- * other's features (RBAC audit #1).
+ * Numeric role hierarchy mirroring `server/src/config/auth.ts`.
+ * Only used by `hasRoleAtLeast` (genuine same-track seniority checks) —
+ * NOT for authorization, which must use set-membership `hasRole` (RBAC audit #1).
  */
-export function hasRole(role: Role | undefined, ...allowed: Role[]): boolean {
-  if (!role) return false;
-  if (allowed.length === 0) return true;
-  if (role === ROLES.SUPER_ADMIN || role === ROLES.HOSPITAL_ADMIN) return true;
-  return allowed.includes(role);
-}
+export const ROLE_HIERARCHY: Record<Role, number> = {
+  SUPER_ADMIN: 100,
+  HOSPITAL_ADMIN: 80,
+  DOCTOR: 60,
+  PATHOLOGIST: 55,
+  NURSE: 50,
+  LAB_TECHNICIAN: 40,
+  PHARMACIST: 40,
+  BILLING_STAFF: 40,
+  INVENTORY_MANAGER: 40,
+  AMBULANCE_DISPATCHER: 35,
+  ACCOUNTANT: 40,
+  IT_SUPPORT: 30,
+  RECEPTIONIST: 30,
+  AMBULANCE_DRIVER: 25,
+  WARD_BOY: 30,
+  PATIENT: 10,
+};
 
 export interface User {
   id: string;

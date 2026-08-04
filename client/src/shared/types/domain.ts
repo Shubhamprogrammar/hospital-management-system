@@ -118,6 +118,8 @@ export interface Patient {
   createdAt: string;
   deletedAt: string | null;
   guardian?: { id: string; name: string; uhid: string } | null;
+  /** Populated by GET /patients/:id (descending by createdAt). */
+  documents?: PatientDocument[];
 }
 
 export interface PatientDocument {

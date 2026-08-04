@@ -29,7 +29,8 @@ import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import { useListQuery } from "@/shared/lib/hooks/useListQuery";
 import {
-  bookAppointment, cancelAppointment, checkInAppointment, listAppointments, rescheduleAppointment,
+  bookAppointment, cancelAppointment, checkInAppointment, getAppointment, getAppointmentQueue,
+  listAppointments, rescheduleAppointment,
 } from "@/shared/services/appointments.service";
 import { listDepartments, listDoctors } from "@/shared/services/org.service";
 import { searchPatients } from "@/shared/services/patients.service";
@@ -39,7 +40,21 @@ export default function AppointmentsPage() {
   const queryClient = useQueryClient();
   const [bookOpen, setBookOpen] = useState(false);
   const [rescheduleFor, setRescheduleFor] = useState<Appointment | null>(null);
+  const [detailFor, setDetailFor] = useState<Appointment | null>(null);
+  const [queueOpen, setQueueOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<AppointmentStatus | "">("");
+
+  const detail = useQuery({
+    queryKey: ["appointments", "detail", detailFor?.id],
+    queryFn: () => getAppointment(detailFor!.id),
+    enabled: !!detailFor,
+  });
+
+  const queue = useQuery({
+    queryKey: ["appointments", "queue"],
+    queryFn: () => getAppointmentQueue({}),
+    enabled: queueOpen,
+  });
 
   const list = useListQuery<Appointment>({
     queryKey: ["appointments", statusFilter],
@@ -101,9 +116,12 @@ export default function AppointmentsPage() {
         title="Appointments"
         description="Book, manage, and check in patient visits."
         actions={
-          <Button onClick={() => setBookOpen(true)}>
-            <PlusIcon /> Book appointment
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => setQueueOpen(true)}>Queue</Button>
+            <Button onClick={() => setBookOpen(true)}>
+              <PlusIcon /> Book appointment
+            </Button>
+          </>
         }
       />
 
@@ -159,6 +177,7 @@ export default function AppointmentsPage() {
                   <TableCell><StatusBadge status={a.status} /></TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="outline" onClick={() => setDetailFor(a)}>Details</Button>
                       {(a.status === "CONFIRMED") && (
                         <>
                           <Button size="sm" variant="outline" onClick={() => checkIn.mutate(a.id)}>Check in</Button>
@@ -270,6 +289,63 @@ export default function AppointmentsPage() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detail dialog */}
+      <Dialog open={!!detailFor} onOpenChange={(o) => !o && setDetailFor(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Appointment details</DialogTitle>
+            <DialogDescription>
+              {detailFor?.patient?.name} · {detailFor ? new Date(detailFor.appointmentDate).toLocaleDateString() : ""} {detailFor?.slotStartTime}–{detailFor?.slotEndTime}
+            </DialogDescription>
+          </DialogHeader>
+          {detail.isLoading ? (
+            <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+          ) : detail.isError ? (
+            <ErrorState error={detail.error} onRetry={() => detail.refetch()} />
+          ) : detail.data ? (
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div><p className="text-muted-foreground">Patient</p><p className="font-medium">{detail.data.patient?.name} · {detail.data.patient?.uhid}</p></div>
+              <div><p className="text-muted-foreground">Doctor</p><p className="font-medium">{detail.data.doctor?.name ?? "—"} ({detail.data.department?.name ?? "—"})</p></div>
+              <div><p className="text-muted-foreground">Mode</p><p className="font-medium">{detail.data.mode.replace(/_/g, " ")}</p></div>
+              <div><p className="text-muted-foreground">Status</p><StatusBadge status={detail.data.status} /></div>
+              <div className="col-span-2"><p className="text-muted-foreground">Reason</p><p className="font-medium">{detail.data.reason ?? "—"}</p></div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Queue dialog */}
+      <Dialog open={queueOpen} onOpenChange={setQueueOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Appointment queue</DialogTitle>
+            <DialogDescription>Live waiting list across departments.</DialogDescription>
+          </DialogHeader>
+          {queue.isLoading ? (
+            <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : queue.isError ? (
+            <ErrorState error={queue.error} onRetry={() => queue.refetch()} />
+          ) : (queue.data ?? []).length === 0 ? (
+            <EmptyState icon={CalendarClockIcon} title="Queue is empty" />
+          ) : (
+            <div className="space-y-2">
+              {queue.data?.map((entry) => (
+                <div key={entry.visit.id} className="flex items-center justify-between gap-3 rounded-md border border-border px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">{entry.visit.patient?.name}</p>
+                    <p className="text-xs text-muted-foreground">Token {entry.visit.tokenNumber} · {entry.visit.status.replace(/_/g, " ")}</p>
+                  </div>
+                  <div className="text-right text-xs text-muted-foreground">
+                    <p>Position {entry.position}</p>
+                    {entry.avgWaitMinutes != null && <p>~{entry.avgWaitMinutes}m wait</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

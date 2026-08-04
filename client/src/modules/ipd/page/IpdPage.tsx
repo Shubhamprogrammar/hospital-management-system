@@ -29,7 +29,7 @@ import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import { useListQuery } from "@/shared/lib/hooks/useListQuery";
 import {
-  addIpdRound, admitPatient, chartIpdVitals, dischargePatient, getDischargeSummary,
+  addIpdRound, admitPatient, chartIpdVitals, dischargePatient, getAdmission, getDischargeSummary,
   listAdmissions, listBeds, listWards, transferAdmission,
 } from "@/shared/services/ipd.service";
 import { searchPatients } from "@/shared/services/patients.service";
@@ -53,6 +53,13 @@ export default function IpdPage() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [actionFor, setActionFor] = useState<{ admission: IpdAdmission; action: ActionType } | null>(null);
   const [summaryFor, setSummaryFor] = useState<IpdAdmission | null>(null);
+  const [detailFor, setDetailFor] = useState<IpdAdmission | null>(null);
+
+  const admissionDetail = useQuery({
+    queryKey: ["ipd", "detail", detailFor?.id],
+    queryFn: () => getAdmission(detailFor!.id),
+    enabled: !!detailFor,
+  });
 
   const list = useListQuery<IpdAdmission>({
     queryKey: ["ipd", statusFilter],
@@ -176,18 +183,21 @@ export default function IpdPage() {
                   <TableCell>{a.admissionType.replace(/_/g, " ")}</TableCell>
                   <TableCell><StatusBadge status={a.status} /></TableCell>
                   <TableCell className="text-right">
-                    {a.status !== "DISCHARGED" ? (
-                      <div className="flex justify-end gap-1">
-                        <Button size="sm" variant="outline" onClick={() => setActionFor({ admission: a, action: "ROUNDS" })}>Rounds</Button>
-                        <Button size="sm" variant="outline" onClick={() => setActionFor({ admission: a, action: "VITALS" })}>Vitals</Button>
-                        <Button size="sm" variant="outline" onClick={() => setActionFor({ admission: a, action: "TRANSFER" })}>Transfer</Button>
-                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => discharge.mutate(a.id)}>Discharge</Button>
-                      </div>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => setSummaryFor(a)}>
-                        <FileTextIcon /> Summary
-                      </Button>
-                    )}
+                    <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="outline" onClick={() => setDetailFor(a)}>Details</Button>
+                      {a.status !== "DISCHARGED" ? (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => setActionFor({ admission: a, action: "ROUNDS" })}>Rounds</Button>
+                          <Button size="sm" variant="outline" onClick={() => setActionFor({ admission: a, action: "VITALS" })}>Vitals</Button>
+                          <Button size="sm" variant="outline" onClick={() => setActionFor({ admission: a, action: "TRANSFER" })}>Transfer</Button>
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => discharge.mutate(a.id)}>Discharge</Button>
+                        </>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => setSummaryFor(a)}>
+                          <FileTextIcon /> Summary
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -304,6 +314,59 @@ export default function IpdPage() {
               onSubmit={(toBedId, reason) => actionFor && transfer.mutate({ id: actionFor.admission.id, toBedId, reason })}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Admission detail dialog */}
+      <Dialog open={!!detailFor} onOpenChange={(o) => !o && setDetailFor(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Admission detail</DialogTitle>
+            <DialogDescription>{detailFor?.patient?.name} · {detailFor?.admissionNo}</DialogDescription>
+          </DialogHeader>
+          {admissionDetail.isLoading ? (
+            <div className="space-y-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+          ) : admissionDetail.isError ? (
+            <ErrorState error={admissionDetail.error} onRetry={() => admissionDetail.refetch()} />
+          ) : admissionDetail.data ? (
+            <div className="flex flex-col gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-4">
+                <div><p className="text-muted-foreground">Admitted</p><p className="font-medium">{new Date(admissionDetail.data.admittedAt).toLocaleString()}</p></div>
+                <div><p className="text-muted-foreground">Status</p><StatusBadge status={admissionDetail.data.status} /></div>
+                <div><p className="text-muted-foreground">Ward / Bed</p><p className="font-medium">{admissionDetail.data.ward?.name ?? "—"} / {admissionDetail.data.bed?.bedNumber ?? "—"}</p></div>
+                <div><p className="text-muted-foreground">Doctor</p><p className="font-medium">{admissionDetail.data.admittingDoctor?.name ?? "—"}</p></div>
+              </div>
+              <div>
+                <p className="mb-2 text-muted-foreground">Rounds ({admissionDetail.data.rounds?.length ?? 0})</p>
+                {admissionDetail.data.rounds?.length ? (
+                  <div className="space-y-1.5">
+                    {admissionDetail.data.rounds.map((r) => (
+                      <p key={r.id} className="rounded-md bg-muted/50 px-3 py-2 text-xs">
+                        <span className="font-medium">{r.doctor?.name ?? "Doctor"}</span> · {new Date(r.createdAt).toLocaleString()}
+                        <span className="block text-muted-foreground">{r.notes}</span>
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No rounds recorded.</p>
+                )}
+              </div>
+              <div>
+                <p className="mb-2 text-muted-foreground">Vitals ({admissionDetail.data.vitals?.length ?? 0})</p>
+                {admissionDetail.data.vitals?.length ? (
+                  <div className="space-y-1.5">
+                    {admissionDetail.data.vitals.map((v) => (
+                      <p key={v.id} className="text-xs text-muted-foreground">
+                        BP {v.bpSystolic ?? "—"}/{v.bpDiastolic ?? "—"} · Pulse {v.pulse ?? "—"} · Temp {v.temperature ?? "—"}°C · SpO2 {v.spo2 ?? "—"}% · {new Date(v.recordedAt).toLocaleString()}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No vitals charted.</p>
+                )}
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 

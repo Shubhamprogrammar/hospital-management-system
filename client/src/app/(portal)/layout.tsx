@@ -9,8 +9,8 @@ import { AppShell } from "@/shared/components/layout/AppShell";
 import { useSession } from "@/shared/lib/auth-client";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { Button } from "@/shared/components/ui/button";
-import { NAV_GROUPS, type NavItem } from "@/shared/components/layout/nav-items";
-import { hasRole, type Role } from "@/shared/types";
+import { canViewNavItem, NAV_GROUPS, type NavItem } from "@/shared/components/layout/nav-items";
+import type { Role } from "@/shared/types";
 
 /** Longest-matching nav item for a pathname (exact or sub-path). */
 function navItemForPath(pathname: string): NavItem | undefined {
@@ -78,9 +78,11 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  // Role guard — mirrors sidebar visibility (RBAC audit #3).
+  // Role guard — mirrors sidebar visibility (RBAC audit #3). Uses
+  // canViewNavItem so empty `minRoles` (admin-only) blocks non-admins instead
+  // of falling through to a bare hasRole() call that returns true.
   const item = navItemForPath(pathname);
-  const denied = !!item?.minRoles && role !== undefined && !hasRole(role, ...item.minRoles);
+  const denied = role !== undefined && !!item?.minRoles && !canViewNavItem(role, item);
 
   if (denied) {
     return (

@@ -21,8 +21,8 @@ import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import {
-  createDispense, listDispenses, listDrugs, processReturn, recordSubstitution,
-  suggestBatches, type BatchSuggestion, type DrugCatalogEntry,
+  createDispense, getDispense, listDispenses, listDrugs, processReturn, recordSubstitution,
+  suggestBatches, type BatchSuggestion, type CreateDispenseInput, type DrugCatalogEntry,
 } from "@/shared/services/pharmacy.service";
 import { useSession } from "@/shared/lib/auth-client";
 import { ROLES, hasRole, type Role } from "@/shared/types";
@@ -40,6 +40,7 @@ export default function PharmacyPage() {
   const [dispenseFor, setDispenseFor] = useState<Prescription | null>(null);
   const [substituteFor, setSubstituteFor] = useState<{ dispenseId: string; item: DispenseItemLike } | null>(null);
   const [returnFor, setReturnFor] = useState<{ dispenseId: string; item: DispenseItemLike } | null>(null);
+  const [detailFor, setDetailFor] = useState<string | null>(null);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["pharmacy"] });
@@ -47,7 +48,7 @@ export default function PharmacyPage() {
   };
 
   const dispense = useMutation({
-    mutationFn: (input: { prescriptionId: string; items: Array<{ prescriptionItemId: string; drugId: string; batchId?: string; quantityDispensed: number }> }) =>
+    mutationFn: (input: CreateDispenseInput) =>
       createDispense(input),
     onSuccess: () => {
       toast.success("Dispense recorded");
@@ -150,7 +151,10 @@ export default function PharmacyPage() {
                           {d.id.slice(0, 8)} · {new Date(d.createdAt).toLocaleString()}
                         </p>
                       </div>
-                      <StatusBadge status={d.status} />
+                      <div className="flex shrink-0 items-center gap-2">
+                        <StatusBadge status={d.status} />
+                        <Button size="sm" variant="ghost" onClick={() => setDetailFor(d.id)}>View details</Button>
+                      </div>
                     </div>
                     <div className="mt-3 space-y-1.5">
                       {(d.items ?? []).map((item) => (
@@ -209,7 +213,62 @@ export default function PharmacyPage() {
           onSubmit={(input) => ret.mutate(input)}
         />
       )}
+
+      {detailFor && <DispenseDetailDialog dispenseId={detailFor} onClose={() => setDetailFor(null)} />}
     </div>
+  );
+}
+
+// ---------- Dispense detail dialog ----------
+
+function DispenseDetailDialog({
+  dispenseId, onClose,
+}: {
+  dispenseId: string;
+  onClose: () => void;
+}) {
+  const detail = useQuery({ queryKey: ["pharmacy", "dispense", dispenseId], queryFn: () => getDispense(dispenseId) });
+  const d = detail.data;
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Dispense details</DialogTitle>
+          <DialogDescription>
+            {d?.prescription?.patient?.name ?? "Patient"} · {d ? new Date(d.createdAt).toLocaleString() : ""} · {d?.status.replace(/_/g, " ")}
+          </DialogDescription>
+        </DialogHeader>
+        {detail.isLoading ? (
+          <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+        ) : detail.isError ? (
+          <ErrorState error={detail.error} onRetry={() => detail.refetch()} />
+        ) : d ? (
+          <div className="space-y-2">
+            {d.items?.map((item) => (
+              <div key={item.id} className="rounded-md border border-border p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{item.drug?.name ?? "Drug"}</span>
+                  <span className="text-xs text-muted-foreground">{item.quantityDispensed}× dispensed</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Batch {item.batch?.batchNo ?? "—"}{item.batch?.expiryDate ? ` · exp ${new Date(item.batch.expiryDate).toLocaleDateString()}` : ""}
+                </p>
+                {item.substitutedFromDrug && (
+                  <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                    Substituted from {item.substitutedFromDrug.name}{item.substitutionReason ? ` — ${item.substitutionReason}` : ""}
+                  </p>
+                )}
+                {(item.returns ?? []).length > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Returned: {(item.returns ?? []).map((r) => `${r.quantityReturned}× (${r.reason})`).join(", ")}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -236,7 +295,7 @@ function DispenseDialog({
   prescription: Prescription | null;
   pending: boolean;
   onClose: () => void;
-  onSubmit: (input: { prescriptionId: string; items: Array<{ prescriptionItemId: string; drugId: string; batchId?: string; quantityDispensed: number }> }) => void;
+  onSubmit: (input: CreateDispenseInput) => void;
 }) {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [batchChoices, setBatchChoices] = useState<Record<string, string>>({});

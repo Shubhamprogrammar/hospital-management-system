@@ -21,9 +21,10 @@ import {
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { searchPatients } from "@/shared/services/patients.service";
 import {
-  acceptAiSuggestion, editAiSuggestion, rejectAiSuggestion, suggestAiPrescription,
+  acceptAiSuggestion, editAiSuggestion, getAiSuggestion, rejectAiSuggestion, suggestAiPrescription,
   type AiSuggestedItem, type AiSuggestionResult,
 } from "@/shared/services/clinical.service";
+import type { AiPrescriptionSuggestion } from "@/shared/types/domain";
 
 export default function AiPrescriptionsPage() {
   const queryClient = useQueryClient();
@@ -38,6 +39,15 @@ export default function AiPrescriptionsPage() {
   const patients = useQuery({ queryKey: ["patients", "ai-options"], queryFn: () => searchPatients({ limit: 50 }) });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["prescriptions"] });
+
+  // Load a previously generated suggestion by its id (GET /ai-prescriptions/:id).
+  const [lookupId, setLookupId] = useState("");
+  const lookup = useQuery({
+    queryKey: ["ai-prescriptions", "lookup", lookupId],
+    queryFn: () => getAiSuggestion(lookupId),
+    enabled: lookupId.trim().length > 0,
+    retry: false,
+  });
 
   const suggest = useMutation({
     mutationFn: () =>
@@ -148,6 +158,47 @@ export default function AiPrescriptionsPage() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Lookup a past suggestion */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardContent className="flex flex-wrap items-end gap-2 p-4">
+              <div className="min-w-64 flex-1">
+                <Label className="text-xs">Load previous suggestion by ID</Label>
+                <Input
+                  className="mt-1"
+                  placeholder="Paste a suggestion id…"
+                  value={lookupId}
+                  onChange={(e) => setLookupId(e.target.value)}
+                />
+              </div>
+              <Button
+                variant="outline"
+                disabled={!lookupId.trim() || lookup.isFetching}
+                onClick={() => lookup.refetch()}
+              >
+                {lookup.isFetching ? "Loading…" : "Load suggestion"}
+              </Button>
+              {lookup.isError && (
+                <p className="w-full text-xs text-destructive">
+                  Could not load suggestion — check the id.
+                </p>
+              )}
+              {lookup.data && (
+                <div className="w-full rounded-md border border-border p-3 text-sm">
+                  <p className="font-medium">
+                    {lookup.data.patient?.name ?? "Patient"} · {lookup.data.status.replace(/_/g, " ")}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{lookup.data.diagnosisText}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {Array.isArray(lookup.data.suggestedItems) ? (lookup.data.suggestedItems as Array<{ drugName?: string; dosage?: string; frequency?: string; durationDays?: number }>).length : 0} item(s) · confidence{" "}
+                    {lookup.data.overallConfidence != null ? `${Math.round(lookup.data.overallConfidence * 100)}%` : "—"}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Result */}
         <div>

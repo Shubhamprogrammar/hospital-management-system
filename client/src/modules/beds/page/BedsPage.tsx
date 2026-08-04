@@ -27,13 +27,21 @@ import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import { useListQuery } from "@/shared/lib/hooks/useListQuery";
-import { changeBedStatus, createBed, listBeds, listWards } from "@/shared/services/ipd.service";
+import { changeBedStatus, createBed, getBed, listBeds, listWards, removeBed } from "@/shared/services/ipd.service";
 import type { Bed } from "@/shared/types/domain";
 
 export default function BedsPage() {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [detailFor, setDetailFor] = useState<Bed | null>(null);
+  const [deleteFor, setDeleteFor] = useState<Bed | null>(null);
+
+  const bedDetail = useQuery({
+    queryKey: ["beds", "detail", detailFor?.id],
+    queryFn: () => getBed(detailFor!.id),
+    enabled: !!detailFor,
+  });
 
   const list = useListQuery<Bed>({
     queryKey: ["beds", statusFilter],
@@ -62,6 +70,16 @@ export default function BedsPage() {
     mutationFn: ({ id, status }: { id: string; status: Bed["status"] }) => changeBedStatus(id, { status }),
     onSuccess: () => {
       toast.success("Bed status updated");
+      queryClient.invalidateQueries({ queryKey: ["beds"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => removeBed(id),
+    onSuccess: () => {
+      toast.success("Bed removed");
+      setDeleteFor(null);
       queryClient.invalidateQueries({ queryKey: ["beds"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -115,17 +133,21 @@ export default function BedsPage() {
                   <TableCell>{b.bedType.replace(/_/g, " ")}</TableCell>
                   <TableCell><StatusBadge status={b.status} /></TableCell>
                   <TableCell className="text-right">
-                    <Select
-                      value={b.status}
-                      onValueChange={(v) => setStatus.mutate({ id: b.id, status: v as Bed["status"] })}
-                    >
-                      <SelectTrigger className="ml-auto h-8 w-36"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {BED_STATUSES.map((s) => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button size="sm" variant="outline" onClick={() => setDetailFor(b)}>Details</Button>
+                      <Select
+                        value={b.status}
+                        onValueChange={(v) => setStatus.mutate({ id: b.id, status: v as Bed["status"] })}
+                      >
+                        <SelectTrigger className="ml-auto h-8 w-36"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {BED_STATUSES.map((s) => (
+                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteFor(b)}>Remove</Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -136,6 +158,44 @@ export default function BedsPage() {
           <PaginationBar meta={list.meta} onPageChange={list.setPage} />
         </div>
       </div>
+
+      {/* Bed detail dialog */}
+      <Dialog open={!!detailFor} onOpenChange={(o) => !o && setDetailFor(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Bed details</DialogTitle>
+            <DialogDescription>{detailFor?.bedNumber}</DialogDescription>
+          </DialogHeader>
+          {bedDetail.isLoading ? (
+            <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+          ) : bedDetail.isError ? (
+            <ErrorState error={bedDetail.error} onRetry={() => bedDetail.refetch()} />
+          ) : bedDetail.data ? (
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div><p className="text-muted-foreground">Ward</p><p className="font-medium">{bedDetail.data.ward?.name ?? "—"} ({bedDetail.data.ward?.floor ?? "—"})</p></div>
+              <div><p className="text-muted-foreground">Type</p><p className="font-medium">{bedDetail.data.bedType.replace(/_/g, " ")}</p></div>
+              <div><p className="text-muted-foreground">Status</p><StatusBadge status={bedDetail.data.status} /></div>
+              <div><p className="text-muted-foreground">Current admission</p><p className="font-medium">{bedDetail.data.currentAdmissionId ? bedDetail.data.currentAdmissionId.slice(0, 8) : "None"}</p></div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <Dialog open={!!deleteFor} onOpenChange={(o) => !o && setDeleteFor(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remove bed</DialogTitle>
+            <DialogDescription>Remove bed {deleteFor?.bedNumber}? This is permanent.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteFor(null)}>Cancel</Button>
+            <Button variant="destructive" disabled={remove.isPending} onClick={() => deleteFor && remove.mutate(deleteFor.id)}>
+              {remove.isPending ? "Removing…" : "Remove bed"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>

@@ -12,13 +12,17 @@ import { Label } from "@/shared/components/ui/label";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { Badge } from "@/shared/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/shared/components/ui/dialog";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
+import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import {
-  getOpdQueue, recordVitals, startConsultation, saveDiagnosis, closeOpdVisit, referToIpd,
+  getOpdQueue, getOpdVisit, recordVitals, startConsultation, saveDiagnosis, closeOpdVisit, referToIpd,
 } from "@/shared/services/appointments.service";
 import { useSession } from "@/shared/lib/auth-client";
-import { hasAnyRole, ROLES, type Role } from "@/shared/types";
+import { hasRole, ROLES, type Role } from "@/shared/types";
 
 
 const VITALS_FIELDS: Array<{ key: string; label: string; type: string; step?: string }> = [
@@ -38,10 +42,10 @@ export default function OpdPage() {
   // Strict role gating (matches the backend opd routes): vitals can be
   // recorded by NURSE/DOCTOR (+admins); consultation actions are
   // SUPER_ADMIN/DOCTOR only.
-  const canRecordVitals = hasAnyRole(role, ROLES.NURSE, ROLES.DOCTOR, ROLES.SUPER_ADMIN, ROLES.HOSPITAL_ADMIN);
-  const canConsult = hasAnyRole(role, ROLES.DOCTOR, ROLES.SUPER_ADMIN);
-  // Refer-to-IPD is restricted to DOCTOR/SUPER_ADMIN on the backend opd routes.
-  const isDoctor = hasAnyRole(role, ROLES.DOCTOR, ROLES.SUPER_ADMIN);
+  const canRecordVitals = hasRole(role, ROLES.NURSE, ROLES.DOCTOR, ROLES.SUPER_ADMIN, ROLES.HOSPITAL_ADMIN);
+  // Consultation + "Refer to IPD" actions mirror the backend opd routes
+  // (SUPER_ADMIN/DOCTOR only).
+  const canConsult = hasRole(role, ROLES.DOCTOR, ROLES.SUPER_ADMIN);
 
   const queue = useQuery({ queryKey: ["opd", "queue"], queryFn: () => getOpdQueue({}) });
 
@@ -81,6 +85,13 @@ export default function OpdPage() {
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [detailFor, setDetailFor] = useState<{ id: string; name: string } | null>(null);
+  const visitDetail = useQuery({
+    queryKey: ["opd", "visit", detailFor?.id],
+    queryFn: () => getOpdVisit(detailFor!.id),
+    enabled: !!detailFor,
   });
 
   return (
@@ -130,7 +141,7 @@ export default function OpdPage() {
                   {canConsult && (entry.visit.status === "IN_CONSULTATION" || entry.visit.status === "VITALS_DONE") && (
                     <Button size="sm" variant="outline" onClick={() => close.mutate(entry.visit.id)}>Close visit</Button>
                   )}
-                  {isDoctor && entry.visit.status === "IN_CONSULTATION" && (
+                  {canConsult && entry.visit.status === "IN_CONSULTATION" && (
                     <ReferIpdButton
                       pending={referIpd.isPending}
                       onSubmit={(reason) => referIpd.mutate({ id: entry.visit.id, reason })}
@@ -141,12 +152,65 @@ export default function OpdPage() {
                       Last vitals: BP {entry.visit.vitals[entry.visit.vitals.length - 1].bpSystolic}/{entry.visit.vitals[entry.visit.vitals.length - 1].bpDiastolic}
                     </span>
                   )}
+                  <Button size="sm" variant="ghost" onClick={() => setDetailFor({ id: entry.visit.id, name: entry.visit.patient?.name ?? "" })}>
+                    View visit
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Visit detail dialog */}
+      <Dialog open={!!detailFor} onOpenChange={(o) => !o && setDetailFor(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>OPD visit</DialogTitle>
+            <DialogDescription>{detailFor?.name}</DialogDescription>
+          </DialogHeader>
+          {visitDetail.isLoading ? (
+            <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+          ) : visitDetail.isError ? (
+            <ErrorState error={visitDetail.error} onRetry={() => visitDetail.refetch()} />
+          ) : visitDetail.data ? (
+            <div className="flex flex-col gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-4">
+                <div><p className="text-muted-foreground">Token</p><p className="font-medium">{visitDetail.data.tokenNumber}</p></div>
+                <div><p className="text-muted-foreground">Status</p><StatusBadge status={visitDetail.data.status} /></div>
+                <div><p className="text-muted-foreground">Doctor</p><p className="font-medium">{visitDetail.data.doctor?.name ?? "—"}</p></div>
+                <div><p className="text-muted-foreground">Department</p><p className="font-medium">{visitDetail.data.department?.name ?? "—"}</p></div>
+              </div>
+              <div>
+                <p className="mb-2 text-muted-foreground">Vitals</p>
+                {visitDetail.data.vitals?.length ? (
+                  <div className="space-y-1.5">
+                    {visitDetail.data.vitals.map((v) => (
+                      <p key={v.id} className="text-xs text-muted-foreground">
+                        BP {v.bpSystolic ?? "—"}/{v.bpDiastolic ?? "—"} · Pulse {v.pulse ?? "—"} · Temp {v.temperature ?? "—"}°C · SpO2 {v.spo2 ?? "—"}% · {new Date(v.recordedAt).toLocaleString()}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No vitals recorded.</p>
+                )}
+              </div>
+              <div>
+                <p className="mb-2 text-muted-foreground">Diagnoses</p>
+                {visitDetail.data.diagnoses?.length ? (
+                  <div className="space-y-1.5">
+                    {visitDetail.data.diagnoses.map((d) => (
+                      <p key={d.id} className="text-sm"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">{d.icd10Code}</code> {d.description ?? ""}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No diagnoses yet.</p>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
@@ -23,7 +23,7 @@ import { Textarea } from "@/shared/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/components/ui/form";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
-import { createRole, deleteRole, listPermissions, listRoles, updateRole } from "@/shared/services/users.service";
+import { createRole, deleteRole, getRole, listPermissions, listRoles, updateRole } from "@/shared/services/users.service";
 import type { Role } from "@/shared/types/domain";
 
 export default function RolesPage() {
@@ -33,6 +33,13 @@ export default function RolesPage() {
 
   const roles = useQuery({ queryKey: ["roles"], queryFn: () => listRoles() });
   const permissions = useQuery({ queryKey: ["permissions"], queryFn: () => listPermissions() });
+
+  const [detailFor, setDetailFor] = useState<string | null>(null);
+  const detail = useQuery({
+    queryKey: ["roles", "detail", detailFor],
+    queryFn: () => getRole(detailFor!),
+    enabled: !!detailFor,
+  });
 
   const form = useForm<RoleValues>({
     resolver: zodResolver(roleSchema),
@@ -106,6 +113,7 @@ export default function RolesPage() {
                   <TableCell><Badge variant={r.isSystem ? "secondary" : "outline"}>{r.isSystem ? "System" : "Custom"}</Badge></TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => setDetailFor(r.id)}>View</Button>
                       {!r.isSystem && (
                         <>
                           <Button size="sm" variant="outline" onClick={() => setEditFor(r)}>Edit</Button>
@@ -169,7 +177,52 @@ export default function RolesPage() {
         onClose={() => setEditFor(null)}
         onSubmit={(input) => editFor && edit.mutate({ id: editFor.id, input })}
       />
+
+      {detailFor && <RoleDetailDialog detail={detail} onClose={() => setDetailFor(null)} />}
     </div>
+  );
+}
+
+// ---------- Role detail dialog ----------
+
+function RoleDetailDialog({
+  detail, onClose,
+}: {
+  detail: UseQueryResult<Role, Error>;
+  onClose: () => void;
+}) {
+  const role = detail.data;
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{role?.name}</DialogTitle>
+          <DialogDescription>
+            {role?.isSystem ? "System role" : "Custom role"}{role?.description ? ` · ${role.description}` : ""}
+          </DialogDescription>
+        </DialogHeader>
+        {detail.isLoading ? (
+          <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-7 w-full" />)}</div>
+        ) : detail.isError ? (
+          <ErrorState error={detail.error} />
+        ) : role ? (
+          <div>
+            <p className="mb-2 text-sm font-medium">Permissions ({role.rolePermissions?.length ?? 0})</p>
+            {(role.rolePermissions ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">No permissions assigned.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {(role.rolePermissions ?? []).map((rp) => (
+                  <code key={rp.permission.id} className="rounded bg-muted px-2 py-1 text-xs">
+                    {rp.permission.module}.{rp.permission.key}
+                  </code>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 

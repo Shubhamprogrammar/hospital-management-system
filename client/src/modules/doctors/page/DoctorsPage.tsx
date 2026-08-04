@@ -29,9 +29,9 @@ import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { useListQuery } from "@/shared/lib/hooks/useListQuery";
 import {
-  createDoctor, deactivateDoctor, listDoctors, listDepartments,
-  setDoctorAvailability, updateDoctor,
-  type AvailabilityInput, type CreateDoctorInput,
+  createDoctor, deactivateDoctor, getDoctor, getDoctorSlots, listDoctors, listDepartments,
+  markDoctorLeave, setDoctorAvailability, updateDoctor,
+  type AvailabilityInput, type CreateDoctorInput, type LeaveInput,
 } from "@/shared/services/org.service";
 import { listUsers } from "@/shared/services/users.service";
 import { ROLES } from "@/shared/types";
@@ -46,6 +46,22 @@ export default function DoctorsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editFor, setEditFor] = useState<Doctor | null>(null);
   const [deleteFor, setDeleteFor] = useState<Doctor | null>(null);
+  const [detailFor, setDetailFor] = useState<Doctor | null>(null);
+  const [leaveFor, setLeaveFor] = useState<Doctor | null>(null);
+  const [slotsFor, setSlotsFor] = useState<Doctor | null>(null);
+  const [slotsDate, setSlotsDate] = useState(new Date().toISOString().slice(0, 10));
+
+  const detail = useQuery({
+    queryKey: ["doctors", "detail", detailFor?.id],
+    queryFn: () => getDoctor(detailFor!.id),
+    enabled: !!detailFor,
+  });
+
+  const slots = useQuery({
+    queryKey: ["doctors", "slots", slotsFor?.id, slotsDate],
+    queryFn: () => getDoctorSlots(slotsFor!.id, { date: slotsDate }),
+    enabled: !!slotsFor,
+  });
 
   const list = useListQuery<Doctor>({ queryKey: ["doctors"], queryFn: (params) => listDoctors(params) });
 
@@ -114,6 +130,16 @@ export default function DoctorsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const leave = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: LeaveInput }) => markDoctorLeave(id, input),
+    onSuccess: () => {
+      toast.success("Leave recorded");
+      setLeaveFor(null);
+      invalidateDoctors();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div>
       <PageHeader
@@ -158,7 +184,10 @@ export default function DoctorsPage() {
                   <TableCell><Badge variant={d.isActive ? "success" : "destructive"}>{d.isActive ? "Active" : "Inactive"}</Badge></TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="outline" onClick={() => setDetailFor(d)}>Details</Button>
                       <Button size="sm" variant="outline" onClick={() => { setAvailabilityFor(d); form.reset(); }}>Availability</Button>
+                      <Button size="sm" variant="outline" onClick={() => setSlotsFor(d)}>Slots</Button>
+                      <Button size="sm" variant="outline" onClick={() => setLeaveFor(d)}>Leave</Button>
                       <Button size="sm" variant="outline" onClick={() => setEditFor(d)}>Edit</Button>
                       {d.isActive && (
                         <Button size="sm" variant="destructive" onClick={() => setDeleteFor(d)}>Deactivate</Button>
@@ -174,6 +203,76 @@ export default function DoctorsPage() {
           <PaginationBar meta={list.meta} onPageChange={list.setPage} />
         </div>
       </div>
+
+      {/* Doctor detail dialog */}
+      <Dialog open={!!detailFor} onOpenChange={(o) => !o && setDetailFor(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Doctor details</DialogTitle>
+            <DialogDescription>{detailFor?.user?.name}</DialogDescription>
+          </DialogHeader>
+          {detail.isLoading ? (
+            <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+          ) : detail.isError ? (
+            <ErrorState error={detail.error} onRetry={() => detail.refetch()} />
+          ) : detail.data ? (
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div><p className="text-muted-foreground">Specialization</p><p className="font-medium">{detail.data.specialization}</p></div>
+              <div><p className="text-muted-foreground">Department</p><p className="font-medium">{detail.data.department?.name ?? "—"}</p></div>
+              <div><p className="text-muted-foreground">Reg. no.</p><p className="font-mono text-xs">{detail.data.registrationNo}</p></div>
+              <div><p className="text-muted-foreground">Fee</p><p className="font-medium">₹{Number(detail.data.consultationFee)}</p></div>
+              <div><p className="text-muted-foreground">Experience</p><p className="font-medium">{detail.data.experienceYears} years</p></div>
+              <div><p className="text-muted-foreground">Status</p><Badge variant={detail.data.isActive ? "success" : "destructive"}>{detail.data.isActive ? "Active" : "Inactive"}</Badge></div>
+              {detail.data.bio && <div className="col-span-2"><p className="text-muted-foreground">Bio</p><p className="font-medium">{detail.data.bio}</p></div>}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Slots dialog */}
+      <Dialog open={!!slotsFor} onOpenChange={(o) => !o && setSlotsFor(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Available slots</DialogTitle>
+            <DialogDescription>{slotsFor?.user?.name} · select a date to view slots</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <Input type="date" value={slotsDate} onChange={(e) => setSlotsDate(e.target.value)} />
+            {slots.isLoading ? (
+              <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+            ) : slots.isError ? (
+              <ErrorState error={slots.error} onRetry={() => slots.refetch()} />
+            ) : (slots.data ?? []).length === 0 ? (
+              <EmptyState icon={StethoscopeIcon} title="No slots on this date" />
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {slots.data?.map((s, idx) => (
+                  <div key={idx} className="rounded-md border border-border px-3 py-2 text-sm">
+                    <p className="font-medium">{s.startTime}–{s.endTime}</p>
+                    <p className={`text-xs ${s.available ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
+                      {s.available ? "Available" : "Booked"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Leave dialog */}
+      <Dialog open={!!leaveFor} onOpenChange={(o) => !o && setLeaveFor(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Record leave</DialogTitle>
+            <DialogDescription>{leaveFor?.user?.name}</DialogDescription>
+          </DialogHeader>
+          <LeaveForm
+            pending={leave.isPending}
+            onSubmit={(input) => leaveFor && leave.mutate({ id: leaveFor.id, input })}
+          />
+        </DialogContent>
+      </Dialog>
 
       <CreateDoctorDialog
         open={createOpen}
@@ -262,6 +361,38 @@ export default function DoctorsPage() {
           </Form>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function LeaveForm({ pending, onSubmit }: { pending: boolean; onSubmit: (input: LeaveInput) => void }) {
+  const [v, setV] = useState({ startDate: "", endDate: "", reason: "" });
+  const valid = v.startDate && v.endDate && v.endDate >= v.startDate;
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <FormLabel>Start</FormLabel>
+          <Input className="mt-1" type="date" value={v.startDate} onChange={(e) => setV((p) => ({ ...p, startDate: e.target.value }))} />
+        </div>
+        <div>
+          <FormLabel>End</FormLabel>
+          <Input className="mt-1" type="date" value={v.endDate} onChange={(e) => setV((p) => ({ ...p, endDate: e.target.value }))} />
+        </div>
+      </div>
+      <div>
+        <FormLabel>Reason (optional)</FormLabel>
+        <Input className="mt-1" value={v.reason} onChange={(e) => setV((p) => ({ ...p, reason: e.target.value }))} />
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={() => onSubmit({ startDate: "", endDate: "", reason: "" })} className="hidden" />
+        <Button
+          disabled={pending || !valid}
+          onClick={() => onSubmit({ startDate: v.startDate, endDate: v.endDate, reason: v.reason.trim() || undefined })}
+        >
+          {pending ? "Saving…" : "Record leave"}
+        </Button>
+      </DialogFooter>
     </div>
   );
 }

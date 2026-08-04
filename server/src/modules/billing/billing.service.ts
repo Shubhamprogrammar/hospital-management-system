@@ -313,7 +313,7 @@ export async function listInsurancePolicies(patientId?: string) {
   return prisma.insurancePolicy.findMany({
     where: patientId ? { patientId } : {},
     include: { patient: { select: { id: true, name: true, uhid: true } } },
-    orderBy: { createdAt: "desc" },
+    orderBy: { validTill: "desc" },
     take: 100,
   });
 }

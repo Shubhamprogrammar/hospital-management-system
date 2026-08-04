@@ -14,7 +14,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import {
-  createConversation, getChatMessages, listConversations, sendChatMessage,
+  createConversation, editChatMessage, getChatMessages, listConversations,
+  markConversationRead, sendChatMessage,
 } from "@/shared/services/chat.service";
 import { listUsers } from "@/shared/services/users.service";
 import { useSession } from "@/shared/lib/auth-client";
@@ -41,6 +42,31 @@ export default function ChatPage() {
     queryFn: () => getChatMessages(activeId!, { limit: 100 }),
     enabled: !!activeId,
   });
+
+  // Mark a conversation as read when it is opened (FR 25.4 — read receipts).
+  const read = useMutation({
+    mutationFn: (conversationId: string) => markConversationRead(conversationId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["chat", "conversations"] }),
+  });
+
+  const openConversation = (id: string) => {
+    setActiveId(id);
+    read.mutate(id);
+  };
+
+  const edit = useMutation({
+    mutationFn: ({ id, content }: { id: string; content: string }) => editChatMessage(id, { content }),
+    onSuccess: () => {
+      toast.success("Message edited");
+      setEditingId(null);
+      setEditDraft("");
+      queryClient.invalidateQueries({ queryKey: ["chat", "messages", activeId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
 
   useSocketEvent<{ conversationId: string }>("chat:message:new", (payload) => {
     if (payload.conversationId === activeId) {
@@ -114,7 +140,7 @@ export default function ChatPage() {
                 {conversations.data?.items.map((c) => (
                   <button
                     key={c.id}
-                    onClick={() => setActiveId(c.id)}
+                    onClick={() => openConversation(c.id)}
                     className={`w-full px-4 py-3 text-left transition-colors hover:bg-accent/50 ${activeId === c.id ? "bg-accent" : ""}`}
                   >
                     <p className="truncate text-sm font-medium">
@@ -145,7 +171,17 @@ export default function ChatPage() {
               <ScrollArea className="flex-1">
                 <div className="flex flex-col gap-3 p-4">
                   {messages.data?.items.map((m) => (
-                    <MessageBubble key={m.id} message={m} mine={m.senderId === myId} />
+                    <MessageBubble
+                      key={m.id}
+                      message={m}
+                      mine={m.senderId === myId}
+                      editing={editingId === m.id}
+                      editDraft={editDraft}
+                      onStartEdit={() => { setEditingId(m.id); setEditDraft(m.content); }}
+                      onCancelEdit={() => { setEditingId(null); setEditDraft(""); }}
+                      onSaveEdit={() => editingId && editDraft.trim() && edit.mutate({ id: editingId, content: editDraft.trim() })}
+                      onDraftChange={setEditDraft}
+                    />
                   ))}
                   <div ref={bottomRef} />
                 </div>
@@ -256,21 +292,57 @@ function NewConversationDialog({
   );
 }
 
-function MessageBubble({ message, mine }: { message: ChatMessage; mine: boolean }) {
+function MessageBubble({
+  message, mine, editing, editDraft, onStartEdit, onCancelEdit, onSaveEdit, onDraftChange,
+}: {
+  message: ChatMessage;
+  mine: boolean;
+  editing: boolean;
+  editDraft: string;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveEdit: () => void;
+  onDraftChange: (value: string) => void;
+}) {
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
+        className={`group relative max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
           mine ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm bg-muted"
         }`}
       >
         {!mine && (
           <p className="mb-0.5 text-xs font-medium opacity-80">{message.sender?.name ?? "User"}</p>
         )}
-        <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        {editing ? (
+          <form
+            onSubmit={(e) => { e.preventDefault(); onSaveEdit(); }}
+            className="flex flex-col gap-2"
+          >
+            <Input autoFocus value={editDraft} onChange={(e) => onDraftChange(e.target.value)} className="h-8 text-sm" />
+            <div className="flex gap-2">
+              <Button size="sm" type="submit" disabled={!editDraft.trim()}>Save</Button>
+              <Button size="sm" variant="ghost" type="button" onClick={onCancelEdit}>Cancel</Button>
+            </div>
+          </form>
+        ) : (
+          <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        )}
+        {message.editedAt && !editing && (
+          <p className={`mt-0.5 text-[10px] ${mine ? "text-primary-foreground/60" : "text-muted-foreground"}`}>edited</p>
+        )}
         <p className={`mt-1 text-[10px] ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
           {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </p>
+        {mine && !editing && (
+          <button
+            type="button"
+            className="absolute -top-2 right-2 hidden rounded bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm group-hover:block"
+            onClick={onStartEdit}
+          >
+            Edit
+          </button>
+        )}
       </div>
     </div>
   );
