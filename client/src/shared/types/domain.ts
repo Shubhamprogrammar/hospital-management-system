@@ -808,7 +808,7 @@ export interface ChatMessage {
   attachments: unknown;
   editedAt: string | null;
   createdAt: string;
-  sender?: { id: string; name: string | null; image: string | null };
+  sender?: { id: string; name: string | null; image: string | null; role?: string };
 }
 
 export type PatientChatStatus = "OPEN" | "ANSWERED" | "CLOSED" | "ESCALATED";

@@ -1621,6 +1621,10 @@ model ChatConversation {
   linkedEntityType String?
   linkedEntityId   String?
   createdBy        String?
+  // Deterministic key of the sorted participant user-ids ("uid1:uid2:uid3") —
+  // unique so the same member set can never have two threads. Nullable for
+  // legacy rows (pre-key); backfilled on reuse or by prisma/backfill-chat.ts.
+  participantKey   String?          @unique
   createdAt        DateTime         @default(now())
 
   participants ChatParticipant[]
