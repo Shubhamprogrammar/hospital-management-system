@@ -46,16 +46,37 @@ export async function listUserConversations(userId: string) {
     orderBy: { createdAt: "desc" },
   });
 
-  // Attach last message summary from Mongo
-  const withLast = await Promise.all(
-    conversations.map(async (c) => {
-      const last = await Message.findOne({ conversationId: c.id })
-        .sort({ createdAt: -1 })
-        .select("body createdAt senderId")
-        .lean();
-      return { ...c, lastMessage: last ?? null };
-    }),
-  );
+  // Attach last message summary from Mongo — single aggregation instead of a
+  // per-conversation query (was N+1).
+  const conversationIds = conversations.map((c) => c.id);
+  const lastMessages = conversationIds.length
+    ? await Message.aggregate<{
+        conversationId: string;
+        _id: string;
+        body: string;
+        createdAt: Date;
+        senderId: string;
+      }>([
+        { $match: { conversationId: { $in: conversationIds } } },
+        { $sort: { createdAt: -1 } },
+        { $group: { _id: "$conversationId", doc: { $first: "$$ROOT" } } },
+        {
+          $project: {
+            conversationId: "$_id",
+            _id: "$doc._id",
+            body: "$doc.body",
+            createdAt: "$doc.createdAt",
+            senderId: "$doc.senderId",
+          },
+        },
+      ])
+    : [];
+  const lastByConversation = new Map(lastMessages.map((m) => [m.conversationId, m]));
+
+  const withLast = conversations.map((c) => ({
+    ...c,
+    lastMessage: lastByConversation.get(c.id) ?? null,
+  }));
 
   return withLast;
 }

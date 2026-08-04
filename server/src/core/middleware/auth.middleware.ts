@@ -5,6 +5,12 @@ import { AppError } from "../errors/AppError.js";
 /**
  * Express middleware that verifies the user's session using Better Auth.
  * Attaches the authenticated user and session to the request.
+ *
+ * Better Auth contract: getSession returns `null` when the session is genuinely
+ * invalid/expired, and only throws when the underlying DB lookup fails. So:
+ *  - null   -> 401 (user must log in again)
+ *  - thrown -> 503 (DB problem, NOT a bad session — a 401 here would wrongly
+ *              log out a still-valid user and mask an outage as a login issue)
  */
 export async function authMiddleware(
   req: Request,
@@ -17,7 +23,8 @@ export async function authMiddleware(
     });
 
     if (!session) {
-      throw AppError.unauthorized("Authentication required");
+      next(AppError.unauthorized("Authentication required"));
+      return;
     }
 
     // Attach session to request for downstream use
@@ -25,12 +32,8 @@ export async function authMiddleware(
     (req as any).user = session.user;
 
     next();
-  } catch (error) {
-    if (error instanceof AppError) {
-      next(error);
-    } else {
-      next(AppError.unauthorized("Invalid or expired session"));
-    }
+  } catch {
+    next(AppError.serviceUnavailable("Session service unavailable"));
   }
 }
 
