@@ -47,6 +47,10 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
       headers: { cookie: cookieHeader },
       cache: "no-store",
     });
+    // 5xx = backend unreachable / broken, NOT an invalid session. Treat it the
+    // same as the network-error catch below: keep the user logged in and let
+    // the client decide, instead of logging them out during an outage.
+    if (res.status >= 500) return true;
     if (!res.ok) return false;
     const body = await res.json();
     return Boolean(body?.session);

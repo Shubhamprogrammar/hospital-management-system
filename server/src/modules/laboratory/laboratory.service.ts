@@ -30,12 +30,19 @@ export async function createLabOrder(data: {
     throw new AppError("At least one test is required", 400, undefined, "VALIDATION_ERROR");
   }
 
+  // Drop nullish/empty entries so Prisma never emits `IN (NULL)`, but still
+  // reject the payload if any entry was invalid (matches the old behavior).
+  const testIds = data.testIds.filter((id): id is string => typeof id === "string" && id.length > 0);
+  if (testIds.length !== data.testIds.length) {
+    throw new AppError("One or more tests do not exist", 400, undefined, "ERR_INVALID_TEST");
+  }
+
   // Validate tests exist
   const tests = await prisma.labTest.findMany({
-    where: { id: { in: data.testIds } },
+    where: { id: { in: testIds } },
     select: { id: true },
   });
-  if (tests.length !== data.testIds.length) {
+  if (tests.length !== testIds.length) {
     throw new AppError("One or more tests do not exist", 400, undefined, "ERR_INVALID_TEST");
   }
 
@@ -48,7 +55,7 @@ export async function createLabOrder(data: {
         ipdAdmissionId: data.ipdAdmissionId,
         barcode: `LAB-${randomBytes(6).toString("hex").toUpperCase()}`,
         orderTests: {
-          create: data.testIds.map((testId) => ({ testId })),
+          create: testIds.map((testId) => ({ testId })),
         },
       },
     });

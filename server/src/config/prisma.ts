@@ -8,7 +8,18 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-const pool = new Pool({ connectionString: env.DATABASE_URL });
+const pool = new Pool({
+  connectionString: env.DATABASE_URL,
+  // Bounded pool so a traffic spike can't exhaust Postgres connections.
+  max: 10,
+  // Fail fast when the pool is saturated or the DB is unreachable, instead of
+  // letting requests (including the session check) queue behind slow queries.
+  connectionTimeoutMillis: 5_000,
+  idleTimeoutMillis: 30_000,
+  // Slow queries abort instead of starving the pool / session validation.
+  statement_timeout: 10_000,
+  query_timeout: 15_000,
+});
 const adapter = new PrismaPg(pool);
 
 const prisma =

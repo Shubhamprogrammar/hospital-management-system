@@ -243,11 +243,24 @@ export async function suggestBatches(drugId: string, quantity: number) {
     },
     orderBy: { expiryDate: "asc" },
   });
+  if (!batches.length) {
+    return { drugId, quantity, fefo: [], fullyCovered: true };
+  }
+
+  // One aggregate instead of a stock query per batch (was N+1).
+  const stock = await prisma.inventoryStockLedger.groupBy({
+    by: ["batchId"],
+    where: { itemId: drugId, batchId: { in: batches.map((b) => b.id) } },
+    _sum: { quantityDelta: true },
+  });
+  const availableByBatch = new Map(
+    stock.map((s) => [s.batchId, s._sum.quantityDelta ?? 0]),
+  );
 
   const suggestion: { batchId: string; batchNo: string; expiryDate: Date; available: number; recommended: number }[] = [];
   let remaining = quantity;
   for (const batch of batches) {
-    const available = await computeStock(null, batch.itemId, batch.id);
+    const available = availableByBatch.get(batch.id) ?? 0;
     if (available <= 0) continue;
     const take = Math.min(available, remaining);
     suggestion.push({

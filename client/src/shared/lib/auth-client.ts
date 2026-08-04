@@ -25,6 +25,12 @@ export const authClient = createAuthClient({
       },
     }),
   ],
+  // Trim get-session polling: the proxy re-validates the session on every
+  // navigation, so don't also hammer `/get-session` on every window-focus
+  // event (better-auth's default). refetchInterval stays 0 (no timer polling).
+  sessionOptions: {
+    refetchOnWindowFocus: false,
+  },
   fetchOptions: {
     credentials: "include",
   },
