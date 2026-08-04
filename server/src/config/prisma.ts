@@ -12,10 +12,14 @@ const pool = new Pool({
   connectionString: env.DATABASE_URL,
   // Bounded pool so a traffic spike can't exhaust Postgres connections.
   max: 10,
-  // Fail fast when the pool is saturated or the DB is unreachable, instead of
-  // letting requests (including the session check) queue behind slow queries.
-  connectionTimeoutMillis: 5_000,
-  idleTimeoutMillis: 30_000,
+  // Neon's compute can autosuspend after inactivity; waking it can take
+  // several seconds, so a tight budget caused "connection terminated due to
+  // connection timeout" under cold starts. 20s covers a cold compute wake
+  // while still failing fast against a genuinely unreachable DB.
+  connectionTimeoutMillis: 20_000,
+  // Keep idle connections around longer so bursts don't pay a full cold
+  // TLS handshake (measured ~1.5s+) on every new connection.
+  idleTimeoutMillis: 60_000,
   // Slow queries abort instead of starving the pool / session validation.
   statement_timeout: 10_000,
   query_timeout: 15_000,
