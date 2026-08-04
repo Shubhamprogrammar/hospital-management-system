@@ -24,7 +24,6 @@ import {
   acceptAiSuggestion, editAiSuggestion, getAiSuggestion, rejectAiSuggestion, suggestAiPrescription,
   type AiSuggestedItem, type AiSuggestionResult,
 } from "@/shared/services/clinical.service";
-import type { AiPrescriptionSuggestion } from "@/shared/types/domain";
 
 export default function AiPrescriptionsPage() {
   const queryClient = useQueryClient();
