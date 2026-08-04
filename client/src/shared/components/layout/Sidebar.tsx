@@ -14,21 +14,21 @@ export function Sidebar({ role, className }: { role?: Role; className?: string }
   return (
     <aside
       className={cn(
-        "relative flex h-full w-64 shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
+        "relative flex h-full w-64 shrink-0 flex-col overflow-hidden border-r border-sidebar-border/70 bg-sidebar/75 text-sidebar-foreground backdrop-blur-xl",
         className,
       )}
     >
-      {/* Deep navy ambient glow */}
+      {/* Ambient azure glow */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 -top-24 h-64 bg-[radial-gradient(ellipse_at_top,var(--glow-cyan),transparent_70%)] opacity-60"
       />
 
-      <div className="relative flex h-14 items-center gap-2.5 border-b border-sidebar-border/80 px-5">
-        <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-brand text-white shadow-md shadow-cyan-500/20">
+      <div className="relative flex h-14 items-center gap-2.5 border-b border-sidebar-border/70 px-5">
+        <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-brand text-white shadow-md shadow-blue-500/25">
           <ActivityIcon className="size-4.5" />
         </div>
-        <span className="text-sm font-semibold tracking-tight text-white">
+        <span className="text-sm font-semibold tracking-tight text-sidebar-foreground">
           MediCore<span className="text-gradient-brand">HMS</span>
         </span>
       </div>
@@ -52,8 +52,8 @@ export function Sidebar({ role, className }: { role?: Role; className?: string }
                     className={cn(
                       "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                       active
-                        ? "bg-gradient-brand text-white shadow-md shadow-cyan-500/20"
-                        : "text-sidebar-foreground/70 hover:bg-white/5 hover:text-sidebar-foreground",
+                        ? "bg-gradient-brand text-white shadow-md shadow-blue-500/25"
+                        : "text-sidebar-foreground/70 hover:bg-black/5 hover:text-sidebar-foreground dark:hover:bg-white/5",
                     )}
                   >
                     <Icon
@@ -72,8 +72,8 @@ export function Sidebar({ role, className }: { role?: Role; className?: string }
         })}
       </nav>
 
-      <div className="relative border-t border-sidebar-border/80 p-3">
-        <div className="rounded-lg bg-white/5 px-3 py-2.5">
+      <div className="relative border-t border-sidebar-border/70 p-3">
+        <div className="rounded-lg bg-black/5 px-3 py-2.5 dark:bg-white/5">
           <p className="text-[11px] font-medium text-sidebar-foreground/80">
             {role ? role.replace(/_/g, " ") : "Signed out"}
           </p>
