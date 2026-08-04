@@ -3,6 +3,7 @@ import { prismaAdapter } from "@better-auth/prisma-adapter";
 import { admin, createAccessControl } from "better-auth/plugins";
 import { prisma } from "./prisma.js";
 import { env } from "./env.js";
+import { ensurePatientProfile } from "../core/utils/patientProfile.js";
 
 /**
  * Hospital Management System roles.
@@ -104,6 +105,32 @@ export const auth = betterAuth({
     expiresIn: 7 * 24 * 60 * 60, // 7 days in seconds
     updateAge: 24 * 60 * 60, // 1 day in seconds (refresh session)
     freshAge: 5 * 60, // 5 minutes (treat as fresh)
+  },
+
+  // Auto-provision a linked Patient profile when a patient account is created,
+  // so self-registered patients don't have to re-enter details later.
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          if (user.role !== ROLES.PATIENT) return;
+          try {
+            await ensurePatientProfile(user as unknown as {
+              id: string;
+              name: string | null;
+              email: string | null;
+              phone: string | null;
+              dateOfBirth: Date | null;
+              gender: string | null;
+            });
+          } catch (error) {
+            // Signup must not fail because profile provisioning did. The lazy
+            // patient-chat resolver retries later once the account has data.
+            console.error(`Failed to provision patient profile for user ${user.id}:`, error);
+          }
+        },
+      },
+    },
   },
 
   // User model configuration

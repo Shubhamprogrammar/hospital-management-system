@@ -145,19 +145,20 @@ export default function ChatbotPage() {
               }
             />
           </div>
-        ) : messages.length === 0 && !send.isPending ? (
-          <div className="flex flex-1 items-center justify-center">
-            <EmptyState
-              icon={MessageSquareTextIcon}
-              title="Ask me anything"
-              description="Try 'How do I book an appointment?' or 'When will my lab report be ready?'"
-            />
-          </div>
         ) : (
           <>
-            <ScrollArea className="flex-1">
-              <div className="flex flex-col gap-3 p-4">
-                {messages.map((m) => {
+            {messages.length === 0 && !send.isPending ? (
+              <div className="flex flex-1 items-center justify-center">
+                <EmptyState
+                  icon={MessageSquareTextIcon}
+                  title="Ask me anything"
+                  description="Try 'How do I book an appointment?' or 'When will my lab report be ready?'"
+                />
+              </div>
+            ) : (
+              <ScrollArea className="flex-1">
+                <div className="flex flex-col gap-3 p-4">
+                  {messages.map((m) => {
                   const mine = m.role === "USER";
                   const isAssistant = m.role === "ASSISTANT";
                   return (
@@ -215,9 +216,10 @@ export default function ChatbotPage() {
                     Typing…
                   </div>
                 )}
-                <div ref={bottomRef} />
-              </div>
-            </ScrollArea>
+                  <div ref={bottomRef} />
+                </div>
+              </ScrollArea>
+            )}
             <form
               onSubmit={(e) => {
                 e.preventDefault();

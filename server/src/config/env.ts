@@ -19,6 +19,11 @@ const envSchema = z.object({
   // CORS — comma-separated list of allowed browser origins.
   // e.g. "http://localhost:3000,http://192.168.1.36:3000"
   CLIENT_URL: z.string().default("http://localhost:3000"),
+
+  // Hugging Face Inference Providers (Hospital Assistant chatbot).
+  // Optional — without a key the assistant falls back to canned replies.
+  HUGGINGFACE_API_KEY: z.string().optional(),
+  HUGGINGFACE_CHAT_MODEL: z.string().default("meta-llama/Llama-3.1-8B-Instruct:fastest"),
 });
 
 function validateEnv() {

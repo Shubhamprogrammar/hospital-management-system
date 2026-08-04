@@ -127,7 +127,10 @@ export default function PatientChatPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const items = (messages.data as unknown as PatientChatMessageView[] | undefined) ?? [];
+  // getPatientChatMessages uses api.list → data is { items, pagination }, so
+  // the Mongo message array lives at `data.items` (its shape differs from
+  // ChatMessage, hence the cast).
+  const items = (messages.data?.items as unknown as PatientChatMessageView[] | undefined) ?? [];
 
   return (
     <div className="flex h-[calc(100dvh-8rem)] flex-col">

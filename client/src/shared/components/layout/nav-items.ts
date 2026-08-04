@@ -212,7 +212,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Patient Chat",
         href: "/patient-chat",
         icon: MessageSquareHeartIcon,
-        minRoles: [ROLES.PATIENT, ROLES.DOCTOR, ROLES.RECEPTIONIST, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.PATIENT, ROLES.DOCTOR, ROLES.NURSE, ROLES.RECEPTIONIST, ROLES.HOSPITAL_ADMIN],
       },
       {
         label: "Hospital Assistant",

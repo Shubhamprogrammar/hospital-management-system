@@ -1,6 +1,6 @@
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../core/errors/AppError.js";
-import { generateUhid } from "../../core/utils/uhid.js";
+import { generateNextUhid } from "../../core/utils/uhid.js";
 import { cacheDel, cacheGet, cacheSet } from "../../config/redis.js";
 
 /**
@@ -54,14 +54,11 @@ export async function registerPatient(data: {
   }
 
   // Sequence per year: HMS-{YY}-{seq}
-  const yearPrefix = String(new Date().getFullYear() % 100).padStart(2, "0");
-  const count = await prisma.patient.count({
-    where: { uhid: { startsWith: `HMS-${yearPrefix}-` } },
-  });
+  const uhid = await generateNextUhid();
 
   return prisma.patient.create({
     data: {
-      uhid: generateUhid(count + 1),
+      uhid,
       name: data.name,
       dob,
       gender: data.gender,
