@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { ClipboardListIcon } from "lucide-react";
+import { Building2Icon, ClipboardListIcon } from "lucide-react";
 
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import { Button } from "@/shared/components/ui/button";
@@ -21,6 +21,10 @@ import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import {
   getOpdQueue, getOpdVisit, recordVitals, startConsultation, saveDiagnosis, closeOpdVisit, referToIpd,
 } from "@/shared/services/appointments.service";
+import { listDepartments } from "@/shared/services/org.service";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { toLocalDate } from "@/shared/lib/utils";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "@/shared/lib/auth-client";
 import { hasRole, ROLES, type Role } from "@/shared/types";
 
@@ -47,7 +51,45 @@ export default function OpdPage() {
   // (SUPER_ADMIN/DOCTOR only).
   const canConsult = hasRole(role, ROLES.DOCTOR, ROLES.SUPER_ADMIN);
 
-  const queue = useQuery({ queryKey: ["opd", "queue"], queryFn: () => getOpdQueue({}) });
+  // The queue endpoint requires departmentId + date (the dashboard already
+  // passes them). Read them from the URL so deep links work, and default to
+  // today + the first active department when they are absent.
+  const departments = useQuery({
+    queryKey: ["departments", "options"],
+    queryFn: () => listDepartments({ limit: 100, isActive: true }),
+  });
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const urlDepartmentId = searchParams.get("departmentId") ?? "";
+  const rawDate = searchParams.get("date") ?? "";
+  const urlDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : "";
+
+  const selectedDepartmentId =
+    departments.data?.items.some((d) => d.id === urlDepartmentId)
+      ? urlDepartmentId
+      : departments.data?.items[0]?.id;
+  const selectedDate = urlDate || toLocalDate(new Date());
+
+  const updateParams = (patch: { departmentId?: string; date?: string }) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (patch.departmentId !== undefined) {
+      if (patch.departmentId) params.set("departmentId", patch.departmentId);
+      else params.delete("departmentId");
+    }
+    if (patch.date !== undefined) {
+      if (patch.date) params.set("date", patch.date);
+      else params.delete("date");
+    }
+    const qs = params.toString();
+    router.replace(qs ? `/opd?${qs}` : "/opd", { scroll: false });
+  };
+
+  const queue = useQuery({
+    queryKey: ["opd", "queue", selectedDepartmentId, selectedDate],
+    queryFn: () => getOpdQueue({ departmentId: selectedDepartmentId!, date: selectedDate }),
+    enabled: !!selectedDepartmentId,
+  });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["opd"] });
 
@@ -101,7 +143,47 @@ export default function OpdPage() {
         description="Live outpatient queue — record vitals, start consultations, and close visits."
       />
 
-      {queue.isLoading ? (
+      <Card className="mb-4">
+        <CardContent className="flex flex-wrap items-center gap-3 p-4">
+          <div className="flex items-center gap-2">
+            <Label className="shrink-0 text-xs font-medium text-muted-foreground">Department</Label>
+            <Select value={selectedDepartmentId ?? ""} onValueChange={(v) => updateParams({ departmentId: v })}>
+              <SelectTrigger className="w-52"><SelectValue placeholder="Select department" /></SelectTrigger>
+              <SelectContent>
+                {departments.data?.items.map((dept) => (
+                  <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="shrink-0 text-xs font-medium text-muted-foreground">Date</Label>
+            <Input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => updateParams({ date: e.target.value })}
+              className="w-44"
+            />
+          </div>
+          <div className="ml-auto text-xs text-muted-foreground">
+            {queue.data ? `${queue.data.length} waiting` : departments.isLoading ? "Loading…" : "No queue data"}
+          </div>
+        </CardContent>
+      </Card>
+
+      {!selectedDepartmentId ? (
+        departments.isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+          </div>
+        ) : (
+          <EmptyState
+            icon={Building2Icon}
+            title="No active departments"
+            description="Create an active department to view its OPD queue."
+          />
+        )
+      ) : queue.isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
         </div>
