@@ -74,7 +74,7 @@ export function createDoctor(input: CreateDoctorInput) {
   return api.post<Doctor>("/doctors", input);
 }
 
-export function updateDoctor(id: string, input: Partial<Omit<CreateDoctorInput, "userId">>) {
+export function updateDoctor(id: string, input: Partial<Omit<CreateDoctorInput, "userId">> & { isActive?: boolean }) {
   return api.patch<Doctor>(`/doctors/${id}`, input);
 }
 

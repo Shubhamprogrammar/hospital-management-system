@@ -1,6 +1,5 @@
 import { api } from "@/shared/services/api";
 import type {
-  ChatbotMessage,
   ChatbotSession,
   ChatConversation,
   ChatMessage,
@@ -48,11 +47,14 @@ export function getPatientChatMessages(conversationId: string, query: Pagination
   return api.list<ChatMessage>(`/patient-chat/conversations/${conversationId}/messages`, query);
 }
 
-export function sendPatientChatMessage(conversationId: string, input: { content: string }) {
+export function sendPatientChatMessage(conversationId: string, input: { body: string }) {
   return api.post<ChatMessage>(`/patient-chat/conversations/${conversationId}/messages`, input);
 }
 
-export function escalatePatientConversation(conversationId: string, input?: { reason?: string }) {
+export function escalatePatientConversation(
+  conversationId: string,
+  input?: { escalateTo?: "APPOINTMENT" | "AMBULANCE"; details?: Record<string, unknown> },
+) {
   return api.post<PatientChatConversation>(`/patient-chat/conversations/${conversationId}/escalate`, input);
 }
 
@@ -66,14 +68,22 @@ export function startChatbotSession() {
   return api.post<ChatbotSession>("/chatbot/conversations");
 }
 
+export interface ChatbotReply {
+  reply: string;
+  guardrailTriggered: boolean;
+  messageIds: { user: string; assistant: string };
+}
+
 export function sendChatbotMessage(sessionId: string, input: { content: string }) {
-  return api.post<ChatbotMessage>(`/chatbot/conversations/${sessionId}/messages`, input);
+  return api.post<ChatbotReply>(`/chatbot/conversations/${sessionId}/messages`, input);
 }
 
 export function getChatbotHistory(sessionId: string) {
-  return api.get<ChatbotMessage[]>(`/chatbot/conversations/${sessionId}`);
+  return api.get<{ session: ChatbotSession; messages: Array<{ _id: string; sessionId: string; role: "USER" | "ASSISTANT"; content: string; createdAt: string }> }>(
+    `/chatbot/conversations/${sessionId}`,
+  );
 }
 
-export function sendChatbotFeedback(sessionId: string, input: { rating: number; comment?: string }) {
+export function sendChatbotFeedback(sessionId: string, input: { rating: "UP" | "DOWN"; comment?: string }) {
   return api.post<{ submitted: boolean }>(`/chatbot/conversations/${sessionId}/feedback`, input);
 }

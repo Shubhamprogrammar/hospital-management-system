@@ -14,7 +14,7 @@ import type { PaginationParams } from "@/shared/types/api";
 
 // ---------- Uploads ----------
 
-export function presignUpload(input: { filename: string; mimeType: string; sizeBytes: number; context: string }) {
+export function presignUpload(input: { uploadContext: string; filename: string; mimeType: string; sizeBytes: number }) {
   return api.post<PresignResponse>("/uploads/presign", input);
 }
 

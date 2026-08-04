@@ -234,6 +234,40 @@ export async function processReturn(data: {
   });
 }
 
+/** Recent dispenses with line items — powers returns/substitution UI (RBAC audit #4). */
+export async function listDispenses(limit = 50) {
+  return prisma.pharmacyDispense.findMany({
+    take: limit,
+    orderBy: { createdAt: "desc" },
+    include: {
+      prescription: {
+        include: {
+          patient: { select: { id: true, uhid: true, name: true } },
+          doctor: { select: { id: true, user: { select: { name: true } } } },
+        },
+      },
+      items: {
+        include: {
+          drug: { select: { id: true, name: true } },
+          batch: { select: { id: true, batchNo: true, expiryDate: true } },
+          substitutedFromDrug: { select: { id: true, name: true } },
+          returns: true,
+        },
+      },
+    },
+  });
+}
+
+/** Drug-master catalog for substitution + prescriptions (RBAC audit #4). */
+export async function listDrugCatalog(search?: string) {
+  return prisma.drugMaster.findMany({
+    where: search ? { name: { contains: search, mode: "insensitive" as const } } : {},
+    select: { id: true, name: true, genericName: true, unit: true, isControlled: true },
+    orderBy: { name: "asc" },
+    take: 200,
+  });
+}
+
 /** FEFO suggestion — earliest expiry first (FRD 20.5 BR-02). */
 export async function suggestBatches(drugId: string, quantity: number) {
   const batches = await prisma.inventoryBatch.findMany({

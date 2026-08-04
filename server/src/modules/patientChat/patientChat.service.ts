@@ -14,8 +14,12 @@ export async function startConversation(data: {
   doctorId?: string;
   departmentId?: string;
 }) {
+  // Resolve the patient from the caller's linked profile when no explicit
+  // patientId is supplied (frontend sends only the actor's session).
   const patient = await prisma.patient.findFirst({
-    where: { id: data.patientId, deletedAt: null },
+    where: data.patientId
+      ? { id: data.patientId, deletedAt: null }
+      : { userId: data.patientUserId, deletedAt: null },
   });
   if (!patient) throw new AppError("Patient not found", 404, undefined, "NOT_FOUND");
 

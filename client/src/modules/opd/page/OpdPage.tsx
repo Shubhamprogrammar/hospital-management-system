@@ -15,10 +15,10 @@ import { Badge } from "@/shared/components/ui/badge";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import {
-  getOpdQueue, recordVitals, startConsultation, saveDiagnosis, closeOpdVisit,
+  getOpdQueue, recordVitals, startConsultation, saveDiagnosis, closeOpdVisit, referToIpd,
 } from "@/shared/services/appointments.service";
 import { useSession } from "@/shared/lib/auth-client";
-import { hasAnyRole, ROLES, type Role } from "@/shared/types";
+import { hasRole, ROLES, type Role } from "@/shared/types";
 
 
 const VITALS_FIELDS: Array<{ key: string; label: string; type: string; step?: string }> = [
@@ -38,8 +38,10 @@ export default function OpdPage() {
   // Strict role gating (matches the backend opd routes): vitals can be
   // recorded by NURSE/DOCTOR (+admins); consultation actions are
   // SUPER_ADMIN/DOCTOR only.
-  const canRecordVitals = hasAnyRole(role, ROLES.NURSE, ROLES.DOCTOR, ROLES.SUPER_ADMIN, ROLES.HOSPITAL_ADMIN);
-  const canConsult = hasAnyRole(role, ROLES.DOCTOR, ROLES.SUPER_ADMIN);
+  const canRecordVitals = hasRole(role, ROLES.NURSE, ROLES.DOCTOR, ROLES.SUPER_ADMIN, ROLES.HOSPITAL_ADMIN);
+  const canConsult = hasRole(role, ROLES.DOCTOR, ROLES.SUPER_ADMIN);
+  // Matches the backend refer-ipd route allow-list exactly (HOSPITAL_ADMIN is NOT included).
+  const isDoctor = role === ROLES.DOCTOR || role === ROLES.SUPER_ADMIN;
 
   const queue = useQuery({ queryKey: ["opd", "queue"], queryFn: () => getOpdQueue({}) });
 
@@ -66,6 +68,18 @@ export default function OpdPage() {
   const close = useMutation({
     mutationFn: (id: string) => closeOpdVisit(id),
     onSuccess: () => { toast.success("Visit closed"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const referIpd = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) => referToIpd(id, { reason: reason || undefined }),
+    onSuccess: (result) => {
+      toast.success("Patient referred to IPD");
+      if (result?.admissionId) {
+        toast(`Admission ${result.admissionId.slice(0, 8)} created`, { icon: "🛏️" });
+      }
+      invalidate();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -116,6 +130,12 @@ export default function OpdPage() {
                   {canConsult && (entry.visit.status === "IN_CONSULTATION" || entry.visit.status === "VITALS_DONE") && (
                     <Button size="sm" variant="outline" onClick={() => close.mutate(entry.visit.id)}>Close visit</Button>
                   )}
+                  {isDoctor && entry.visit.status === "IN_CONSULTATION" && (
+                    <ReferIpdButton
+                      pending={referIpd.isPending}
+                      onSubmit={(reason) => referIpd.mutate({ id: entry.visit.id, reason })}
+                    />
+                  )}
                   {entry.visit.vitals && entry.visit.vitals.length > 0 && (
                     <span className="ml-auto text-xs text-muted-foreground">
                       Last vitals: BP {entry.visit.vitals[entry.visit.vitals.length - 1].bpSystolic}/{entry.visit.vitals[entry.visit.vitals.length - 1].bpDiastolic}
@@ -160,6 +180,37 @@ function VitalsForm({ disabled, onSubmit }: { disabled: boolean; onSubmit: (v: R
       ))}
       <Button size="sm" variant="outline" onClick={submit}>Record vitals</Button>
     </div>
+  );
+}
+
+function ReferIpdButton({ pending, onSubmit }: { pending: boolean; onSubmit: (reason?: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  return (
+    <>
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>Refer to IPD</Button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4" onClick={() => setOpen(false)}>
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-sm font-semibold">Refer to IPD</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Creates an in-patient admission for this patient.</p>
+            <textarea
+              rows={3}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Reason (optional)"
+              className="mt-4 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button disabled={pending} onClick={() => { onSubmit(reason.trim() || undefined); setOpen(false); }}>
+                {pending ? "Referring…" : "Refer to IPD"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

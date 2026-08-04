@@ -19,6 +19,8 @@ import {
 import { listUsers } from "@/shared/services/users.service";
 import { useSession } from "@/shared/lib/auth-client";
 import { useSocketEvent } from "@/shared/lib/hooks/useSocket";
+import { STAFF_CHAT_ROLES } from "@/shared/components/layout/nav-items";
+import { hasRole, type Role } from "@/shared/types";
 import type { ChatMessage } from "@/shared/types/domain";
 
 export default function ChatPage() {
@@ -73,6 +75,7 @@ export default function ChatPage() {
   });
 
   const myId = session?.user?.id;
+  const canStartChat = hasRole(session?.user?.role as Role | undefined, ...STAFF_CHAT_ROLES);
 
   return (
     <div className="flex h-[calc(100dvh-8rem)] flex-col">
@@ -80,9 +83,11 @@ export default function ChatPage() {
         title="Chat"
         description="Internal team conversations."
         actions={
-          <Button onClick={() => setPickerOpen(true)} disabled={start.isPending}>
-            New conversation
-          </Button>
+          canStartChat && (
+            <Button onClick={() => setPickerOpen(true)} disabled={start.isPending}>
+              New conversation
+            </Button>
+          )
         }
       />
 

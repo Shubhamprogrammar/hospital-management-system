@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
-import { StethoscopeIcon } from "lucide-react";
+import { StethoscopeIcon, UserPlusIcon } from "lucide-react";
 import { WEEKDAYS, availabilitySchema, type AvailabilityValues } from "@/modules/doctors/constant/schemas";
 
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
 import { Badge } from "@/shared/components/ui/badge";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
@@ -27,14 +28,46 @@ import { PaginationBar } from "@/shared/components/ui/pagination";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { useListQuery } from "@/shared/lib/hooks/useListQuery";
-import { listDoctors, setDoctorAvailability, type AvailabilityInput } from "@/shared/services/org.service";
+import {
+  createDoctor, deactivateDoctor, listDoctors, listDepartments,
+  setDoctorAvailability, updateDoctor,
+  type AvailabilityInput, type CreateDoctorInput,
+} from "@/shared/services/org.service";
+import { listUsers } from "@/shared/services/users.service";
+import { ROLES } from "@/shared/types";
 import type { Doctor } from "@/shared/types/domain";
+
+const EMPTY_CREATE = { userId: "", departmentId: "", registrationNo: "", specialization: "", consultationFee: "", experienceYears: "", bio: "" };
+const EMPTY_EDIT = { departmentId: "", specialization: "", consultationFee: "", experienceYears: "", bio: "", isActive: true };
 
 export default function DoctorsPage() {
   const queryClient = useQueryClient();
   const [availabilityFor, setAvailabilityFor] = useState<Doctor | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editFor, setEditFor] = useState<Doctor | null>(null);
+  const [deleteFor, setDeleteFor] = useState<Doctor | null>(null);
 
   const list = useListQuery<Doctor>({ queryKey: ["doctors"], queryFn: (params) => listDoctors(params) });
+
+  const doctors = list.data?.items ?? [];
+
+  // Doctor-profile candidate users: DOCTOR-role users that don't already have a profile.
+  const users = useQuery({
+    queryKey: ["users", "doctor-picker"],
+    queryFn: () => listUsers({ limit: 100 }),
+    enabled: createOpen,
+  });
+  const departments = useQuery({
+    queryKey: ["departments", "options"],
+    queryFn: () => listDepartments({ limit: 100, isActive: true }),
+    enabled: createOpen || !!editFor,
+  });
+
+  const candidateUsers = (users.data?.items ?? []).filter(
+    (u) => u.role === ROLES.DOCTOR && !doctors.some((d) => d.userId === u.id),
+  );
+
+  const invalidateDoctors = () => queryClient.invalidateQueries({ queryKey: ["doctors"] });
 
   const form = useForm<AvailabilityValues>({
     resolver: zodResolver(availabilitySchema),
@@ -46,15 +79,48 @@ export default function DoctorsPage() {
     onSuccess: () => {
       toast.success("Availability updated");
       setAvailabilityFor(null);
-      form.reset();
       queryClient.invalidateQueries({ queryKey: ["doctors"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const create = useMutation({
+    mutationFn: (input: CreateDoctorInput) => createDoctor(input),
+    onSuccess: () => {
+      toast.success("Doctor profile created");
+      setCreateOpen(false);
+      invalidateDoctors();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateDoctor>[1] }) => updateDoctor(id, input),
+    onSuccess: () => {
+      toast.success("Doctor profile updated");
+      setEditFor(null);
+      invalidateDoctors();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deactivate = useMutation({
+    mutationFn: (id: string) => deactivateDoctor(id),
+    onSuccess: () => {
+      toast.success("Doctor profile deactivated");
+      setDeleteFor(null);
+      invalidateDoctors();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   return (
     <div>
-      <PageHeader title="Doctors" description="Doctor profiles, specializations, and availability." />
+      <PageHeader
+        title="Doctors"
+        description="Doctor profiles, specializations, and availability."
+        actions={<Button onClick={() => setCreateOpen(true)}><UserPlusIcon /> Add doctor</Button>}
+      />
 
       <div className="rounded-lg border border-border bg-card">
         {list.isLoading ? (
@@ -64,7 +130,7 @@ export default function DoctorsPage() {
         ) : list.isError ? (
           <ErrorState error={list.error} onRetry={() => list.refetch()} />
         ) : list.data?.items.length === 0 ? (
-          <EmptyState icon={StethoscopeIcon} title="No doctors" description="Doctor profiles appear here once assigned." />
+          <EmptyState icon={StethoscopeIcon} title="No doctors" description="Add a doctor profile to get started — they'll then appear in appointment, lab, and prescription dropdowns." />
         ) : (
           <Table>
             <TableHeader>
@@ -91,7 +157,13 @@ export default function DoctorsPage() {
                   <TableCell>₹{Number(d.consultationFee)}</TableCell>
                   <TableCell><Badge variant={d.isActive ? "success" : "destructive"}>{d.isActive ? "Active" : "Inactive"}</Badge></TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" onClick={() => { setAvailabilityFor(d); form.reset(); }}>Availability</Button>
+                    <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="outline" onClick={() => { setAvailabilityFor(d); form.reset(); }}>Availability</Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditFor(d)}>Edit</Button>
+                      {d.isActive && (
+                        <Button size="sm" variant="destructive" onClick={() => setDeleteFor(d)}>Deactivate</Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -102,6 +174,43 @@ export default function DoctorsPage() {
           <PaginationBar meta={list.meta} onPageChange={list.setPage} />
         </div>
       </div>
+
+      <CreateDoctorDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        candidates={candidateUsers}
+        departments={departments.data?.items ?? []}
+        usersLoading={users.isLoading}
+        departmentsLoading={departments.isLoading}
+        pending={create.isPending}
+        onSubmit={(input) => create.mutate(input)}
+      />
+
+      <EditDoctorDialog
+        doctor={editFor}
+        onClose={() => setEditFor(null)}
+        departments={departments.data?.items ?? []}
+        departmentsLoading={departments.isLoading}
+        pending={update.isPending}
+        onSubmit={(input) => editFor && update.mutate({ id: editFor.id, input })}
+      />
+
+      <Dialog open={!!deleteFor} onOpenChange={(o) => !o && setDeleteFor(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Deactivate doctor</DialogTitle>
+            <DialogDescription>
+              Deactivate {deleteFor?.user?.name}? They will be hidden from appointment, lab, and prescription dropdowns.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteFor(null)}>Cancel</Button>
+            <Button variant="destructive" disabled={deactivate.isPending} onClick={() => deleteFor && deactivate.mutate(deleteFor.id)}>
+              {deactivate.isPending ? "Deactivating…" : "Deactivate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!availabilityFor} onOpenChange={(o) => !o && setAvailabilityFor(null)}>
         <DialogContent>
@@ -154,5 +263,199 @@ export default function DoctorsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ---------- Create dialog ----------
+
+function CreateDoctorDialog({
+  open, onOpenChange, candidates, departments, usersLoading, departmentsLoading, pending, onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  candidates: Array<{ id: string; name: string | null; email: string }>;
+  departments: Array<{ id: string; name: string; code: string }>;
+  usersLoading: boolean;
+  departmentsLoading: boolean;
+  pending: boolean;
+  onSubmit: (input: CreateDoctorInput) => void;
+}) {
+  const [v, setV] = useState(EMPTY_CREATE);
+  const set = (k: keyof typeof EMPTY_CREATE) => (value: string) => setV((prev) => ({ ...prev, [k]: value }));
+
+  const valid = v.userId && v.departmentId && v.registrationNo.trim() && v.specialization.trim();
+
+  const submit = () => {
+    if (!valid) return;
+    onSubmit({
+      userId: v.userId,
+      departmentId: v.departmentId,
+      registrationNo: v.registrationNo.trim(),
+      specialization: v.specialization.trim(),
+      consultationFee: v.consultationFee ? Number(v.consultationFee) : undefined,
+      experienceYears: v.experienceYears ? Number(v.experienceYears) : undefined,
+      bio: v.bio.trim() || undefined,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next) { setV(EMPTY_CREATE); } onOpenChange(next); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add doctor</DialogTitle>
+          <DialogDescription>Link a DOCTOR-role user to a department to create their profile.</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <Label className="text-xs">User</Label>
+              <Select value={v.userId} onValueChange={set("userId")}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select user" /></SelectTrigger>
+                <SelectContent>
+                  {usersLoading ? (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">Loading…</p>
+                  ) : candidates.length === 0 ? (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">No DOCTOR-role users without a profile. Create one in Users first.</p>
+                  ) : candidates.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.name ?? u.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Department</Label>
+              <Select value={v.departmentId} onValueChange={set("departmentId")}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select department" /></SelectTrigger>
+                <SelectContent>
+                  {departmentsLoading ? (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">Loading…</p>
+                  ) : departments.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Registration no.</Label>
+              <Input className="mt-1" placeholder="e.g. MCI-2026-001" value={v.registrationNo} onChange={(e) => set("registrationNo")(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Specialization</Label>
+              <Input className="mt-1" placeholder="e.g. Cardiology" value={v.specialization} onChange={(e) => set("specialization")(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Consultation fee (₹)</Label>
+              <Input className="mt-1" type="number" min="0" value={v.consultationFee} onChange={(e) => set("consultationFee")(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Experience (years)</Label>
+              <Input className="mt-1" type="number" min="0" value={v.experienceYears} onChange={(e) => set("experienceYears")(e.target.value)} />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Bio</Label>
+              <Input className="mt-1" value={v.bio} onChange={(e) => set("bio")(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button disabled={!valid || pending} onClick={submit}>{pending ? "Creating…" : "Create profile"}</Button>
+          </DialogFooter>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------- Edit dialog ----------
+
+function EditDoctorDialog({
+  doctor, onClose, departments, departmentsLoading, pending, onSubmit,
+}: {
+  doctor: Doctor | null;
+  onClose: () => void;
+  departments: Array<{ id: string; name: string; code: string }>;
+  departmentsLoading: boolean;
+  pending: boolean;
+  onSubmit: (input: { departmentId?: string; specialization?: string; consultationFee?: number; experienceYears?: number; bio?: string; isActive?: boolean }) => void;
+}) {
+  const [v, setV] = useState(EMPTY_EDIT);
+  const set = (k: keyof typeof EMPTY_EDIT) => (value: string | boolean) => setV((prev) => ({ ...prev, [k]: value }));
+
+  // Sync local state when the dialog opens for a different doctor.
+  const key = doctor?.id ?? "none";
+  const [syncedKey, setSyncedKey] = useState(key);
+  if (key !== syncedKey) {
+    setSyncedKey(key);
+    setV({
+      departmentId: doctor?.departmentId ?? "",
+      specialization: doctor?.specialization ?? "",
+      consultationFee: doctor?.consultationFee != null ? String(doctor.consultationFee) : "",
+      experienceYears: doctor?.experienceYears != null ? String(doctor.experienceYears) : "",
+      bio: doctor?.bio ?? "",
+      isActive: doctor?.isActive ?? true,
+    });
+  }
+
+  const submit = () => {
+    onSubmit({
+      departmentId: v.departmentId || undefined,
+      specialization: v.specialization.trim() || undefined,
+      consultationFee: v.consultationFee !== "" ? Number(v.consultationFee) : undefined,
+      experienceYears: v.experienceYears !== "" ? Number(v.experienceYears) : undefined,
+      bio: v.bio.trim() || undefined,
+      isActive: v.isActive,
+    });
+  };
+
+  return (
+    <Dialog open={!!doctor} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit doctor</DialogTitle>
+          <DialogDescription>{doctor?.user?.name}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <Label className="text-xs">Department</Label>
+              <Select value={v.departmentId} onValueChange={set("departmentId")}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select department" /></SelectTrigger>
+                <SelectContent>
+                  {departmentsLoading ? (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">Loading…</p>
+                  ) : departments.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Specialization</Label>
+              <Input className="mt-1" value={v.specialization} onChange={(e) => set("specialization")(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Consultation fee (₹)</Label>
+              <Input className="mt-1" type="number" min="0" value={v.consultationFee} onChange={(e) => set("consultationFee")(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Experience (years)</Label>
+              <Input className="mt-1" type="number" min="0" value={v.experienceYears} onChange={(e) => set("experienceYears")(e.target.value)} />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Bio</Label>
+              <Input className="mt-1" value={v.bio} onChange={(e) => set("bio")(e.target.value)} />
+            </div>
+            <label className="col-span-2 flex items-center gap-2 text-sm">
+              <input type="checkbox" className="size-4 accent-primary" checked={v.isActive} onChange={(e) => set("isActive")(e.target.checked)} />
+              Active profile
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button disabled={pending} onClick={submit}>{pending ? "Saving…" : "Save changes"}</Button>
+          </DialogFooter>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

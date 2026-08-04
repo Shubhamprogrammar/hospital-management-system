@@ -29,7 +29,7 @@ import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import { useListQuery } from "@/shared/lib/hooks/useListQuery";
 import {
-  bookAppointment, cancelAppointment, checkInAppointment, listAppointments,
+  bookAppointment, cancelAppointment, checkInAppointment, listAppointments, rescheduleAppointment,
 } from "@/shared/services/appointments.service";
 import { listDepartments, listDoctors } from "@/shared/services/org.service";
 import { searchPatients } from "@/shared/services/patients.service";
@@ -38,6 +38,7 @@ import type { Appointment, AppointmentStatus } from "@/shared/types/domain";
 export default function AppointmentsPage() {
   const queryClient = useQueryClient();
   const [bookOpen, setBookOpen] = useState(false);
+  const [rescheduleFor, setRescheduleFor] = useState<Appointment | null>(null);
   const [statusFilter, setStatusFilter] = useState<AppointmentStatus | "">("");
 
   const list = useListQuery<Appointment>({
@@ -78,6 +79,17 @@ export default function AppointmentsPage() {
     mutationFn: (id: string) => cancelAppointment(id),
     onSuccess: () => {
       toast.success("Appointment cancelled");
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const reschedule = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: { appointmentDate: string; slotStartTime: string; slotEndTime: string } }) =>
+      rescheduleAppointment(id, input),
+    onSuccess: () => {
+      toast.success("Appointment rescheduled");
+      setRescheduleFor(null);
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -148,7 +160,10 @@ export default function AppointmentsPage() {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       {(a.status === "CONFIRMED") && (
-                        <Button size="sm" variant="outline" onClick={() => checkIn.mutate(a.id)}>Check in</Button>
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => checkIn.mutate(a.id)}>Check in</Button>
+                          <Button size="sm" variant="outline" onClick={() => setRescheduleFor(a)}>Reschedule</Button>
+                        </>
                       )}
                       {(a.status === "CONFIRMED" || a.status === "CHECKED_IN") && (
                         <Button size="sm" variant="ghost" className="text-destructive" onClick={() => cancel.mutate(a.id)}>Cancel</Button>
@@ -257,6 +272,67 @@ export default function AppointmentsPage() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Reschedule dialog */}
+      <Dialog open={!!rescheduleFor} onOpenChange={(o) => !o && setRescheduleFor(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reschedule appointment</DialogTitle>
+            <DialogDescription>
+              {rescheduleFor?.patient?.name} with {rescheduleFor?.doctor?.name ?? "doctor"} · currently{" "}
+              {rescheduleFor ? new Date(rescheduleFor.appointmentDate).toLocaleDateString() : ""} {rescheduleFor?.slotStartTime}–{rescheduleFor?.slotEndTime}
+            </DialogDescription>
+          </DialogHeader>
+          <RescheduleForm
+            defaults={{
+              appointmentDate: rescheduleFor?.appointmentDate ? rescheduleFor.appointmentDate.slice(0, 10) : "",
+              slotStartTime: rescheduleFor?.slotStartTime ?? "09:00",
+              slotEndTime: rescheduleFor?.slotEndTime ?? "09:30",
+            }}
+            pending={reschedule.isPending}
+            onSubmit={(input) => rescheduleFor && reschedule.mutate({ id: rescheduleFor.id, input })}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function RescheduleForm({
+  defaults, pending, onSubmit,
+}: {
+  defaults: { appointmentDate: string; slotStartTime: string; slotEndTime: string };
+  pending: boolean;
+  onSubmit: (input: { appointmentDate: string; slotStartTime: string; slotEndTime: string }) => void;
+}) {
+  const [v, setV] = useState(defaults);
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (v.appointmentDate && v.slotStartTime && v.slotEndTime) onSubmit(v);
+      }}
+      className="flex flex-col gap-4"
+    >
+      <div className="grid gap-1.5">
+        <FormLabel>Date</FormLabel>
+        <Input type="date" value={v.appointmentDate} onChange={(e) => setV((p) => ({ ...p, appointmentDate: e.target.value }))} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-1.5">
+          <FormLabel>Start</FormLabel>
+          <Input type="time" value={v.slotStartTime} onChange={(e) => setV((p) => ({ ...p, slotStartTime: e.target.value }))} />
+        </div>
+        <div className="grid gap-1.5">
+          <FormLabel>End</FormLabel>
+          <Input type="time" value={v.slotEndTime} onChange={(e) => setV((p) => ({ ...p, slotEndTime: e.target.value }))} />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button type="submit" disabled={pending || !v.appointmentDate}>
+          {pending ? "Rescheduling…" : "Reschedule"}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

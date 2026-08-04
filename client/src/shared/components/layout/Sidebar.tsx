@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { ActivityIcon } from "lucide-react";
 
 import { cn } from "@/shared/lib/utils";
-import type { Role } from "@/shared/types";
-import { canViewNavItem, NAV_GROUPS } from "@/shared/components/layout/nav-items";
+import { hasRole, type Role } from "@/shared/types";
+import { NAV_GROUPS } from "@/shared/components/layout/nav-items";
 
 export function Sidebar({ role, className }: { role?: Role; className?: string }) {
   const pathname = usePathname();
@@ -35,7 +35,7 @@ export function Sidebar({ role, className }: { role?: Role; className?: string }
 
       <nav className="relative flex flex-1 flex-col gap-4 overflow-y-auto p-3">
         {NAV_GROUPS.map((group) => {
-          const visible = group.items.filter((item) => canViewNavItem(role, item));
+          const visible = group.items.filter((item) => !item.minRoles || hasRole(role, ...item.minRoles));
           if (visible.length === 0) return null;
           return (
             <div key={group.label} className="flex flex-col gap-1">

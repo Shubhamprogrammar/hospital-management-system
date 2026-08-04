@@ -1,18 +1,28 @@
 import type { Request, Response, NextFunction } from "express";
-import type { Role } from "../../config/auth.js";
-import { ROLE_HIERARCHY } from "../../config/auth.js";
+import { ROLES, type Role } from "../../config/auth.js";
 import { AppError } from "../errors/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 
 /**
+ * Roles that can always access any endpoint (explicit override, not "top of a
+ * shared numeric scale"). HOSPITAL_ADMIN is deliberately included alongside
+ * SUPER_ADMIN to preserve the admin privileges that were previously granted by
+ * the hierarchy floor logic.
+ */
+const ALWAYS_ALLOWED: Role[] = [ROLES.SUPER_ADMIN, ROLES.HOSPITAL_ADMIN];
+
+/**
  * Authorization middleware factory.
- * Checks if the authenticated user has one of the specified roles.
- * Uses role hierarchy to allow higher-privilege roles to access lower-privilege endpoints.
+ * Direct role set-membership check: the user's role must be listed in
+ * `allowedRoles` (or be an always-allowed admin role). This deliberately does
+ * NOT use numeric hierarchy floors — sharing a floor number between unrelated
+ * department roles (e.g. LAB_TECHNICIAN/PHARMACIST/BILLING_STAFF all = 40)
+ * previously let lateral roles reach each other's endpoints (RBAC audit #1).
  *
  * @example
  * ```ts
- * // Only SUPER_ADMIN and HOSPITAL_ADMIN can access
- * authorize("SUPER_ADMIN", "HOSPITAL_ADMIN")
+ * // Only PHARMACIST (plus admins) — NOT nurses/doctors/billing staff
+ * authorize("PHARMACIST")
  *
  * // Any authenticated user can access
  * authorize()
@@ -26,21 +36,20 @@ export function authorize(...allowedRoles: Role[]) {
       throw AppError.unauthorized("Authentication required");
     }
 
-    const userRole = user.role as Role;
-
     // If no specific roles required, just check authentication
     if (allowedRoles.length === 0) {
       return next();
     }
 
-    // Check if user has the required role (using hierarchy)
-    const userLevel = ROLE_HIERARCHY[userRole];
-    const hasAccess = allowedRoles.some((role) => {
-      const requiredLevel = ROLE_HIERARCHY[role];
-      return userLevel >= requiredLevel;
-    });
+    const userRole = user.role as Role;
 
-    if (!hasAccess) {
+    // Explicit admin override
+    if (ALWAYS_ALLOWED.includes(userRole)) {
+      return next();
+    }
+
+    // Direct set-membership — no hierarchy floors
+    if (!allowedRoles.includes(userRole)) {
       throw AppError.forbidden(
         `Access denied. Required role(s): ${allowedRoles.join(", ")}`,
       );

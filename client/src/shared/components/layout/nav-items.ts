@@ -2,6 +2,8 @@ import {
   AmbulanceIcon,
   BarChart3Icon,
   BedDoubleIcon,
+  BellIcon,
+  BotIcon,
   Building2Icon,
   CalendarClockIcon,
   ClipboardListIcon,
@@ -9,11 +11,13 @@ import {
   FlaskConicalIcon,
   LayoutDashboardIcon,
   MessageSquareIcon,
+  MessageSquareHeartIcon,
   PackageIcon,
   PillIcon,
   ReceiptIcon,
   SettingsIcon,
   ShieldAlertIcon,
+  SparklesIcon,
   StethoscopeIcon,
   UsersIcon,
   WalletIcon,
@@ -41,10 +45,37 @@ export interface NavGroup {
   items: NavItem[];
 }
 
+/**
+ * Staff roles allowed to use Chat — mirrors the backend allow-list in
+ * `server/src/modules/chat/chat.routes.ts` (FRD 25.3 — not exposed to PATIENT).
+ */
+export const STAFF_CHAT_ROLES: Role[] = [
+  ROLES.SUPER_ADMIN,
+  ROLES.HOSPITAL_ADMIN,
+  ROLES.DOCTOR,
+  ROLES.NURSE,
+  ROLES.RECEPTIONIST,
+  ROLES.LAB_TECHNICIAN,
+  ROLES.PHARMACIST,
+  ROLES.BILLING_STAFF,
+  ROLES.INVENTORY_MANAGER,
+  ROLES.AMBULANCE_DISPATCHER,
+  ROLES.AMBULANCE_DRIVER,
+  ROLES.WARD_BOY,
+  ROLES.IT_SUPPORT,
+];
+
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Overview",
-    items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboardIcon }],
+    items: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboardIcon },
+      {
+        label: "Notifications",
+        href: "/notifications",
+        icon: BellIcon,
+      },
+    ],
   },
   {
     label: "Patients & Scheduling",
@@ -108,6 +139,12 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: PillIcon,
         minRoles: [ROLES.DOCTOR, ROLES.PHARMACIST],
       },
+      {
+        label: "AI Prescriptions",
+        href: "/ai-prescriptions",
+        icon: SparklesIcon,
+        minRoles: [ROLES.DOCTOR],
+      },
     ],
   },
   {
@@ -152,7 +189,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Ambulance",
         href: "/ambulance",
         icon: AmbulanceIcon,
-        minRoles: [ROLES.AMBULANCE_DISPATCHER, ROLES.AMBULANCE_DRIVER, ROLES.RECEPTIONIST],
+        minRoles: [ROLES.AMBULANCE_DISPATCHER, ROLES.AMBULANCE_DRIVER, ROLES.RECEPTIONIST, ROLES.HOSPITAL_ADMIN],
       },
       {
         label: "Reports",
@@ -169,19 +206,18 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Chat",
         href: "/chat",
         icon: MessageSquareIcon,
-        minRoles: [
-          ROLES.DOCTOR,
-          ROLES.NURSE,
-          ROLES.RECEPTIONIST,
-          ROLES.LAB_TECHNICIAN,
-          ROLES.PHARMACIST,
-          ROLES.BILLING_STAFF,
-          ROLES.INVENTORY_MANAGER,
-          ROLES.AMBULANCE_DISPATCHER,
-          ROLES.AMBULANCE_DRIVER,
-          ROLES.WARD_BOY,
-          ROLES.IT_SUPPORT,
-        ],
+        minRoles: STAFF_CHAT_ROLES,
+      },
+      {
+        label: "Patient Chat",
+        href: "/patient-chat",
+        icon: MessageSquareHeartIcon,
+        minRoles: [ROLES.PATIENT, ROLES.DOCTOR, ROLES.RECEPTIONIST, ROLES.HOSPITAL_ADMIN],
+      },
+      {
+        label: "Hospital Assistant",
+        href: "/chatbot",
+        icon: BotIcon,
       },
     ],
   },

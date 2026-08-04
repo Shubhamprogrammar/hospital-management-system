@@ -23,11 +23,13 @@ import { Textarea } from "@/shared/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/components/ui/form";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
-import { createRole, deleteRole, listPermissions, listRoles } from "@/shared/services/users.service";
+import { createRole, deleteRole, listPermissions, listRoles, updateRole } from "@/shared/services/users.service";
+import type { Role } from "@/shared/types/domain";
 
 export default function RolesPage() {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  const [editFor, setEditFor] = useState<Role | null>(null);
 
   const roles = useQuery({ queryKey: ["roles"], queryFn: () => listRoles() });
   const permissions = useQuery({ queryKey: ["permissions"], queryFn: () => listPermissions() });
@@ -53,6 +55,17 @@ export default function RolesPage() {
     mutationFn: (id: string) => deleteRole(id),
     onSuccess: () => {
       toast.success("Role deleted");
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const edit = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: { name?: string; description?: string; permissionKeys?: string[] } }) =>
+      updateRole(id, input),
+    onSuccess: () => {
+      toast.success("Role updated");
+      setEditFor(null);
       queryClient.invalidateQueries({ queryKey: ["roles"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -92,9 +105,14 @@ export default function RolesPage() {
                   <TableCell className="text-muted-foreground">{r.description ?? "—"}</TableCell>
                   <TableCell><Badge variant={r.isSystem ? "secondary" : "outline"}>{r.isSystem ? "System" : "Custom"}</Badge></TableCell>
                   <TableCell className="text-right">
-                    {!r.isSystem && (
-                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => remove.mutate(r.id)}>Delete</Button>
-                    )}
+                    <div className="flex justify-end gap-1">
+                      {!r.isSystem && (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => setEditFor(r)}>Edit</Button>
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => remove.mutate(r.id)}>Delete</Button>
+                        </>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -143,6 +161,94 @@ export default function RolesPage() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      <EditRoleDialog
+        role={editFor}
+        permissions={permissions.data ?? []}
+        pending={edit.isPending}
+        onClose={() => setEditFor(null)}
+        onSubmit={(input) => editFor && edit.mutate({ id: editFor.id, input })}
+      />
     </div>
+  );
+}
+
+function EditRoleDialog({
+  role, permissions, pending, onClose, onSubmit,
+}: {
+  role: Role | null;
+  permissions: Array<{ id: string; key: string; module: string }>;
+  pending: boolean;
+  onClose: () => void;
+  onSubmit: (input: { name?: string; description?: string; permissionKeys?: string[] }) => void;
+}) {
+  const [v, setV] = useState({ name: "", description: "", permissionKeys: [] as string[] });
+  const [syncedKey, setSyncedKey] = useState<string | null>(null);
+  const key = role?.id ?? null;
+  if (key !== syncedKey) {
+    setSyncedKey(key);
+    setV({
+      name: role?.name ?? "",
+      description: role?.description ?? "",
+      permissionKeys: role?.rolePermissions?.map((rp) => rp.permission.key) ?? [],
+    });
+  }
+
+  return (
+    <Dialog open={!!role} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Edit role</DialogTitle>
+          <DialogDescription>{role?.name}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <FormLabel>Role name</FormLabel>
+              <Input className="mt-1" value={v.name} onChange={(e) => setV((p) => ({ ...p, name: e.target.value }))} />
+            </div>
+            <div>
+              <FormLabel>Description</FormLabel>
+              <Textarea className="mt-1" value={v.description} onChange={(e) => setV((p) => ({ ...p, description: e.target.value }))} />
+            </div>
+          </div>
+          <div className="grid max-h-52 grid-cols-2 gap-1.5 overflow-y-auto rounded-md border border-border p-2">
+            {permissions.map((p) => (
+              <label key={p.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-primary"
+                  checked={v.permissionKeys.includes(p.key)}
+                  onChange={(e) =>
+                    setV((prev) => ({
+                      ...prev,
+                      permissionKeys: e.target.checked
+                        ? [...prev.permissionKeys, p.key]
+                        : prev.permissionKeys.filter((k) => k !== p.key),
+                    }))
+                  }
+                />
+                <span className="truncate">{p.module}.{p.key}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            disabled={pending || !v.name.trim()}
+            onClick={() =>
+              onSubmit({
+                name: v.name.trim(),
+                description: v.description.trim() || undefined,
+                permissionKeys: v.permissionKeys,
+              })
+            }
+          >
+            {pending ? "Saving…" : "Save changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

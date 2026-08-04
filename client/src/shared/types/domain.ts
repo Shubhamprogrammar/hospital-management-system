@@ -10,6 +10,8 @@ export interface Role {
   isSystem: boolean;
   createdAt: string;
   deletedAt: string | null;
+  /** Populated by GET /roles (nested `rolePermissions`). */
+  rolePermissions?: Array<{ permission: { id: string; key: string; module: string } }>;
 }
 
 export interface Permission {
@@ -381,6 +383,13 @@ export interface AmbulanceTrip {
   completedAt: string | null;
   vehicle?: { id: string; registrationNo: string; type: AmbulanceVehicleType } | null;
   driver?: { id: string; name: string | null } | null;
+  /** Populated by GET /trips/mine and GET /trips/:id/track. */
+  request?: {
+    id: string;
+    pickupAddress: string;
+    dropAddress: string | null;
+    patient?: { id: string; name: string; uhid: string; phone: string } | null;
+  } | null;
 }
 
 // ---------- Clinical: Prescriptions ----------
@@ -545,6 +554,9 @@ export interface DispenseItem {
   substitutionReason: string | null;
   drug?: { id: string; name: string };
   batch?: { id: string; batchNo: string; expiryDate: string } | null;
+  /** Populated on detail/list dispense responses (backend `substitutedFromDrug` / `returns`). */
+  substitutedFromDrug?: { id: string; name: string } | null;
+  returns?: Array<{ id: string; quantityReturned: number; reason: string; createdAt: string }>;
 }
 
 export interface PharmacyQueueItem {
@@ -851,9 +863,10 @@ export interface FileUpload {
 }
 
 export interface PresignResponse {
-  id: string;
+  fileId: string;
   uploadUrl: string;
   s3Key: string;
+  expiresIn: number;
 }
 
 export interface HospitalProfile {
