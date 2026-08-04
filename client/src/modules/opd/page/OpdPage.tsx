@@ -18,7 +18,7 @@ import {
   getOpdQueue, recordVitals, startConsultation, saveDiagnosis, closeOpdVisit, referToIpd,
 } from "@/shared/services/appointments.service";
 import { useSession } from "@/shared/lib/auth-client";
-import { hasRole, ROLES, type Role } from "@/shared/types";
+import { hasAnyRole, ROLES, type Role } from "@/shared/types";
 
 
 const VITALS_FIELDS: Array<{ key: string; label: string; type: string; step?: string }> = [
@@ -38,10 +38,10 @@ export default function OpdPage() {
   // Strict role gating (matches the backend opd routes): vitals can be
   // recorded by NURSE/DOCTOR (+admins); consultation actions are
   // SUPER_ADMIN/DOCTOR only.
-  const canRecordVitals = hasRole(role, ROLES.NURSE, ROLES.DOCTOR, ROLES.SUPER_ADMIN, ROLES.HOSPITAL_ADMIN);
-  const canConsult = hasRole(role, ROLES.DOCTOR, ROLES.SUPER_ADMIN);
-  // Matches the backend refer-ipd route allow-list exactly (HOSPITAL_ADMIN is NOT included).
-  const isDoctor = role === ROLES.DOCTOR || role === ROLES.SUPER_ADMIN;
+  const canRecordVitals = hasAnyRole(role, ROLES.NURSE, ROLES.DOCTOR, ROLES.SUPER_ADMIN, ROLES.HOSPITAL_ADMIN);
+  const canConsult = hasAnyRole(role, ROLES.DOCTOR, ROLES.SUPER_ADMIN);
+  // Refer-to-IPD is restricted to DOCTOR/SUPER_ADMIN on the backend opd routes.
+  const isDoctor = hasAnyRole(role, ROLES.DOCTOR, ROLES.SUPER_ADMIN);
 
   const queue = useQuery({ queryKey: ["opd", "queue"], queryFn: () => getOpdQueue({}) });
 

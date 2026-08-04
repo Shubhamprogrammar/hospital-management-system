@@ -23,43 +23,19 @@ export type Role = (typeof ROLES)[keyof typeof ROLES];
 /** System administrators — the only roles that implicitly see every module. */
 export const ADMIN_ROLES: readonly Role[] = [ROLES.SUPER_ADMIN, ROLES.HOSPITAL_ADMIN];
 
-/**
- * Role seniority levels — mirrors server/src/config/auth.ts.
- * Higher = more privileged.
- */
-export const ROLE_HIERARCHY: Record<Role, number> = {
-  SUPER_ADMIN: 100,
-  HOSPITAL_ADMIN: 80,
-  DOCTOR: 60,
-  PATHOLOGIST: 55,
-  NURSE: 50,
-  LAB_TECHNICIAN: 40,
-  PHARMACIST: 40,
-  BILLING_STAFF: 40,
-  INVENTORY_MANAGER: 40,
-  AMBULANCE_DISPATCHER: 35,
-  ACCOUNTANT: 40,
-  IT_SUPPORT: 30,
-  RECEPTIONIST: 30,
-  AMBULANCE_DRIVER: 25,
-  WARD_BOY: 30,
-  PATIENT: 10,
-};
-
+/** True if the role is a system administrator (SUPER_ADMIN / HOSPITAL_ADMIN). */
 export function isAdminRole(role: Role | undefined): boolean {
-  return role === ROLES.SUPER_ADMIN || role === ROLES.HOSPITAL_ADMIN;
+  return !!role && ADMIN_ROLES.includes(role);
 }
 
 /**
- * Genuine seniority check (same-track floor semantics): true if `role` meets or
- * exceeds the hierarchy level of a single senior role (e.g. `hasRoleAtLeast(role, ROLES.DOCTOR)`
- * = "doctor or anything more senior"). Only safe for single-role checks — see
- * `hasRole` for set-membership checks (nav visibility, route guards).
+ * Strict role allowlist — true only if `role` is literally one of `allowed`.
+ * No hierarchy inference: two roles at the same "level" (e.g. PHARMACIST and
+ * BILLING_STAFF) are deliberately NOT interchangeable. Use this for UI gating
+ * instead of hierarchy-based checks so each role only sees its own tooling.
  */
-export function hasRoleAtLeast(role: Role | undefined, ...allowed: Role[]): boolean {
-  if (!role) return false;
-  const floor = Math.min(...allowed.map((r) => ROLE_HIERARCHY[r]));
-  return ROLE_HIERARCHY[role] >= floor;
+export function hasAnyRole(role: Role | undefined, ...allowed: Role[]): boolean {
+  return !!role && allowed.includes(role);
 }
 
 /**
