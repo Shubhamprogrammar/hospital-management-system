@@ -18,7 +18,7 @@ import {
   getOpdQueue, recordVitals, startConsultation, saveDiagnosis, closeOpdVisit,
 } from "@/shared/services/appointments.service";
 import { useSession } from "@/shared/lib/auth-client";
-import { ROLES, hasRoleAtLeast, type Role } from "@/shared/types";
+import { hasAnyRole, ROLES, type Role } from "@/shared/types";
 
 
 const VITALS_FIELDS: Array<{ key: string; label: string; type: string; step?: string }> = [
@@ -35,8 +35,11 @@ export default function OpdPage() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const role = session?.user?.role as Role | undefined;
-  const isDoctor = hasRoleAtLeast(role, ROLES.DOCTOR);
-  const isNurse = hasRoleAtLeast(role, ROLES.NURSE);
+  // Strict role gating (matches the backend opd routes): vitals can be
+  // recorded by NURSE/DOCTOR (+admins); consultation actions are
+  // SUPER_ADMIN/DOCTOR only.
+  const canRecordVitals = hasAnyRole(role, ROLES.NURSE, ROLES.DOCTOR, ROLES.SUPER_ADMIN, ROLES.HOSPITAL_ADMIN);
+  const canConsult = hasAnyRole(role, ROLES.DOCTOR, ROLES.SUPER_ADMIN);
 
   const queue = useQuery({ queryKey: ["opd", "queue"], queryFn: () => getOpdQueue({}) });
 
@@ -100,17 +103,17 @@ export default function OpdPage() {
                 </div>
 
                 <div className="mt-4 grid gap-3 md:grid-cols-4">
-                  <VitalsForm disabled={!isNurse && !isDoctor} onSubmit={(values) => vitals.mutate({ visitId: entry.visit.id, values })} />
+                  <VitalsForm disabled={!canRecordVitals} onSubmit={(values) => vitals.mutate({ visitId: entry.visit.id, values })} />
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                  {isDoctor && entry.visit.status === "VITALS_DONE" && (
+                  {canConsult && entry.visit.status === "VITALS_DONE" && (
                     <Button size="sm" onClick={() => start.mutate(entry.visit.id)}>Start consultation</Button>
                   )}
-                  {isDoctor && entry.visit.status === "IN_CONSULTATION" && (
+                  {canConsult && entry.visit.status === "IN_CONSULTATION" && (
                     <DiagnosisInput onSubmit={(icd10) => diagnosis.mutate({ id: entry.visit.id, icd10 })} />
                   )}
-                  {isDoctor && (entry.visit.status === "IN_CONSULTATION" || entry.visit.status === "VITALS_DONE") && (
+                  {canConsult && (entry.visit.status === "IN_CONSULTATION" || entry.visit.status === "VITALS_DONE") && (
                     <Button size="sm" variant="outline" onClick={() => close.mutate(entry.visit.id)}>Close visit</Button>
                   )}
                   {entry.visit.vitals && entry.visit.vitals.length > 0 && (

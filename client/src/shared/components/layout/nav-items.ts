@@ -20,13 +20,19 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { ROLES, type Role } from "@/shared/types";
+import { isAdminRole, ROLES, type Role } from "@/shared/types";
 
 export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
-  /** Roles that meet-or-exceed any of these hierarchy levels can see this item. Omit = everyone. */
+  /**
+   * Strict role allowlist — only these roles see the item (SUPER_ADMIN and
+   * HOSPITAL_ADMIN always see everything via canViewNavItem).
+   * Omit = visible to every signed-in role. Empty array = admin-only.
+   * NOTE: strict membership, NOT a hierarchy — a PHARMACIST must never see
+   * billing-only modules just because both sit at the same level.
+   */
   minRoles?: Role[];
 }
 
@@ -47,19 +53,19 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Patients",
         href: "/patients",
         icon: UsersIcon,
-        minRoles: [ROLES.RECEPTIONIST, ROLES.NURSE, ROLES.DOCTOR, ROLES.WARD_BOY, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.RECEPTIONIST, ROLES.NURSE, ROLES.DOCTOR],
       },
       {
         label: "Appointments",
         href: "/appointments",
         icon: CalendarClockIcon,
-        minRoles: [ROLES.RECEPTIONIST, ROLES.NURSE, ROLES.DOCTOR, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.RECEPTIONIST],
       },
       {
         label: "OPD Queue",
         href: "/opd",
         icon: ClipboardListIcon,
-        minRoles: [ROLES.RECEPTIONIST, ROLES.NURSE, ROLES.DOCTOR, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.RECEPTIONIST, ROLES.NURSE, ROLES.DOCTOR],
       },
     ],
   },
@@ -70,37 +76,37 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Doctors",
         href: "/doctors",
         icon: StethoscopeIcon,
-        minRoles: [ROLES.RECEPTIONIST, ROLES.NURSE, ROLES.DOCTOR, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.DOCTOR],
       },
       {
         label: "Departments",
         href: "/departments",
         icon: Building2Icon,
-        minRoles: [ROLES.HOSPITAL_ADMIN, ROLES.SUPER_ADMIN],
+        minRoles: [],
       },
       {
         label: "IPD Admissions",
         href: "/ipd",
         icon: BedDoubleIcon,
-        minRoles: [ROLES.DOCTOR, ROLES.NURSE, ROLES.RECEPTIONIST, ROLES.WARD_BOY, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.DOCTOR, ROLES.NURSE, ROLES.RECEPTIONIST],
       },
       {
         label: "Wards",
         href: "/wards",
         icon: Building2Icon,
-        minRoles: [ROLES.NURSE, ROLES.WARD_BOY, ROLES.HOSPITAL_ADMIN],
+        minRoles: [],
       },
       {
         label: "Beds",
         href: "/beds",
         icon: BedDoubleIcon,
-        minRoles: [ROLES.NURSE, ROLES.WARD_BOY, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.NURSE, ROLES.WARD_BOY],
       },
       {
         label: "Prescriptions",
         href: "/prescriptions",
         icon: PillIcon,
-        minRoles: [ROLES.DOCTOR, ROLES.PHARMACIST, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.DOCTOR, ROLES.PHARMACIST],
       },
     ],
   },
@@ -111,19 +117,19 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Laboratory",
         href: "/laboratory",
         icon: FlaskConicalIcon,
-        minRoles: [ROLES.DOCTOR, ROLES.LAB_TECHNICIAN, ROLES.PATHOLOGIST, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.DOCTOR, ROLES.LAB_TECHNICIAN, ROLES.PATHOLOGIST],
       },
       {
         label: "Pharmacy",
         href: "/pharmacy",
         icon: PillIcon,
-        minRoles: [ROLES.PHARMACIST, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.PHARMACIST],
       },
       {
         label: "Inventory",
         href: "/inventory",
         icon: PackageIcon,
-        minRoles: [ROLES.INVENTORY_MANAGER, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.INVENTORY_MANAGER],
       },
     ],
   },
@@ -134,62 +140,73 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Billing",
         href: "/billing",
         icon: ReceiptIcon,
-        minRoles: [ROLES.BILLING_STAFF, ROLES.ACCOUNTANT, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.BILLING_STAFF, ROLES.ACCOUNTANT],
       },
       {
         label: "Payments",
         href: "/payments",
         icon: WalletIcon,
-        minRoles: [ROLES.BILLING_STAFF, ROLES.ACCOUNTANT, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.BILLING_STAFF, ROLES.ACCOUNTANT],
       },
       {
         label: "Ambulance",
         href: "/ambulance",
         icon: AmbulanceIcon,
-        minRoles: [ROLES.AMBULANCE_DISPATCHER, ROLES.RECEPTIONIST, ROLES.HOSPITAL_ADMIN],
+        minRoles: [ROLES.AMBULANCE_DISPATCHER, ROLES.AMBULANCE_DRIVER, ROLES.RECEPTIONIST],
       },
       {
         label: "Reports",
         href: "/reports",
         icon: BarChart3Icon,
-        minRoles: [ROLES.HOSPITAL_ADMIN, ROLES.BILLING_STAFF, ROLES.INVENTORY_MANAGER, ROLES.DOCTOR],
+        minRoles: [ROLES.DOCTOR, ROLES.BILLING_STAFF, ROLES.INVENTORY_MANAGER],
       },
     ],
   },
   {
     label: "Communication",
-    items: [{ label: "Chat", href: "/chat", icon: MessageSquareIcon }],
+    items: [
+      {
+        label: "Chat",
+        href: "/chat",
+        icon: MessageSquareIcon,
+        minRoles: [
+          ROLES.DOCTOR,
+          ROLES.NURSE,
+          ROLES.RECEPTIONIST,
+          ROLES.LAB_TECHNICIAN,
+          ROLES.PHARMACIST,
+          ROLES.BILLING_STAFF,
+          ROLES.INVENTORY_MANAGER,
+          ROLES.AMBULANCE_DISPATCHER,
+          ROLES.AMBULANCE_DRIVER,
+          ROLES.WARD_BOY,
+          ROLES.IT_SUPPORT,
+        ],
+      },
+    ],
   },
   {
     label: "Administration",
     items: [
-      {
-        label: "Users",
-        href: "/users",
-        icon: UsersIcon,
-        minRoles: [ROLES.HOSPITAL_ADMIN, ROLES.SUPER_ADMIN],
-      },
-      {
-        label: "Roles",
-        href: "/roles",
-        icon: ShieldAlertIcon,
-        minRoles: [ROLES.HOSPITAL_ADMIN, ROLES.SUPER_ADMIN],
-      },
-      {
-        label: "Audit Logs",
-        href: "/audit",
-        icon: FileSearchIcon,
-        minRoles: [ROLES.HOSPITAL_ADMIN, ROLES.SUPER_ADMIN],
-      },
-      {
-        label: "Settings",
-        href: "/settings",
-        icon: SettingsIcon,
-        minRoles: [ROLES.HOSPITAL_ADMIN, ROLES.SUPER_ADMIN],
-      },
+      { label: "Users", href: "/users", icon: UsersIcon, minRoles: [] },
+      { label: "Roles", href: "/roles", icon: ShieldAlertIcon, minRoles: [] },
+      { label: "Audit Logs", href: "/audit", icon: FileSearchIcon, minRoles: [] },
+      { label: "Settings", href: "/settings", icon: SettingsIcon, minRoles: [] },
     ],
   },
 ];
+
+/**
+ * Role-based sidebar visibility.
+ * - No `minRoles` → everyone sees it.
+ * - System admins (SUPER_ADMIN / HOSPITAL_ADMIN) → see everything.
+ * - Otherwise the role must be listed in `minRoles` explicitly (strict match).
+ */
+export function canViewNavItem(role: Role | undefined, item: NavItem): boolean {
+  if (!item.minRoles) return true;
+  if (isAdminRole(role)) return true;
+  return !!role && item.minRoles.includes(role);
+}
 
 /** Flat list for simple consumers (e.g. tests, sitemaps). */
 export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);

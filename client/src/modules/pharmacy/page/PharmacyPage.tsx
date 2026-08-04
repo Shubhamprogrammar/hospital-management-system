@@ -13,13 +13,15 @@ import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import { getPharmacyQueue } from "@/shared/services/pharmacy.service";
 import { useSession } from "@/shared/lib/auth-client";
-import { ROLES, hasRoleAtLeast, type Role } from "@/shared/types";
+import { hasAnyRole, ROLES, type Role } from "@/shared/types";
 
 export default function PharmacyPage() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const role = session?.user?.role as Role | undefined;
-  const isPharmacist = hasRoleAtLeast(role, ROLES.PHARMACIST);
+  // Backend pharmacy endpoints authorize SUPER_ADMIN + PHARMACIST only — a
+  // DOCTOR must not see dispense actions.
+  const isPharmacist = hasAnyRole(role, ROLES.PHARMACIST, ROLES.SUPER_ADMIN);
 
   const queue = useQuery({ queryKey: ["pharmacy", "queue"], queryFn: () => getPharmacyQueue({}) });
 

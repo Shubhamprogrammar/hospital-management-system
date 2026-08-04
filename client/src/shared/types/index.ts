@@ -20,30 +20,22 @@ export const ROLES = {
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
-export const ROLE_HIERARCHY: Record<Role, number> = {
-  SUPER_ADMIN: 100,
-  HOSPITAL_ADMIN: 80,
-  DOCTOR: 60,
-  PATHOLOGIST: 55,
-  NURSE: 50,
-  LAB_TECHNICIAN: 40,
-  PHARMACIST: 40,
-  BILLING_STAFF: 40,
-  INVENTORY_MANAGER: 40,
-  AMBULANCE_DISPATCHER: 35,
-  ACCOUNTANT: 40,
-  IT_SUPPORT: 30,
-  RECEPTIONIST: 30,
-  AMBULANCE_DRIVER: 25,
-  WARD_BOY: 30,
-  PATIENT: 10,
-};
+/** System administrators — the only roles that implicitly see every module. */
+export const ADMIN_ROLES: readonly Role[] = [ROLES.SUPER_ADMIN, ROLES.HOSPITAL_ADMIN];
 
-/** True if `role` meets the minimum level of any role in `allowed` (hierarchy-floor semantics, matches server authorize()). */
-export function hasRoleAtLeast(role: Role | undefined, ...allowed: Role[]): boolean {
-  if (!role) return false;
-  const floor = Math.min(...allowed.map((r) => ROLE_HIERARCHY[r]));
-  return ROLE_HIERARCHY[role] >= floor;
+/** True if the role is a system administrator (SUPER_ADMIN / HOSPITAL_ADMIN). */
+export function isAdminRole(role: Role | undefined): boolean {
+  return !!role && ADMIN_ROLES.includes(role);
+}
+
+/**
+ * Strict role allowlist — true only if `role` is literally one of `allowed`.
+ * No hierarchy inference: two roles at the same "level" (e.g. PHARMACIST and
+ * BILLING_STAFF) are deliberately NOT interchangeable. Use this for UI gating
+ * instead of hierarchy-based checks so each role only sees its own tooling.
+ */
+export function hasAnyRole(role: Role | undefined, ...allowed: Role[]): boolean {
+  return !!role && allowed.includes(role);
 }
 
 export interface User {
