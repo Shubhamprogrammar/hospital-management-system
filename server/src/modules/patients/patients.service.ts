@@ -3,7 +3,6 @@ import { AppError } from "../../core/errors/AppError.js";
 import { generateNextUhid } from "../../core/utils/uhid.js";
 import { cacheDel, cacheGet, cacheSet } from "../../config/redis.js";
 import { destroyCloudinaryAsset } from "../../config/cloudinary.js";
-import { ensurePatientProfile } from "../../core/utils/patientProfile.js";
 
 /**
  * Register a new patient with UHID generation (FR 9.4-01).
