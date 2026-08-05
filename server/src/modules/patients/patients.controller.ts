@@ -11,6 +11,7 @@ import {
   getPatientDetail,
   updatePatient,
   addPatientDocument,
+  removePatientDocument,
   mergePatients,
   getPatientTimeline,
   resolvePatientByUser,
@@ -93,6 +94,24 @@ export const addPatientDocumentHandler = catchAsync(async (req: Request, res: Re
     req,
   );
   sendSuccess(res, doc, 201);
+});
+
+export const removePatientDocumentHandler = catchAsync(async (req: Request, res: Response) => {
+  const actor = (req as any).user;
+  const result = await removePatientDocument(req.params.id, req.params.docId, actor);
+  writeAuditLog(
+    {
+      actorId: actor?.id,
+      actorRole: actor?.role,
+      action: "DOCUMENT_DELETED",
+      module: "patients",
+      entityType: "PatientDocument",
+      entityId: req.params.docId,
+      after: { patientId: req.params.id },
+    },
+    req,
+  );
+  sendSuccess(res, result);
 });
 
 export const mergePatientsHandler = catchAsync(async (req: Request, res: Response) => {

@@ -7,6 +7,7 @@ import {
   getPatientHandler,
   updatePatientHandler,
   addPatientDocumentHandler,
+  removePatientDocumentHandler,
   mergePatientsHandler,
   getPatientTimelineHandler,
   getPatientMeHandler,
@@ -58,6 +59,11 @@ patientsRoutes.post(
   "/:id/documents",
   authorize("SUPER_ADMIN", "HOSPITAL_ADMIN", "RECEPTIONIST", "DOCTOR"),
   addPatientDocumentHandler,
+);
+patientsRoutes.delete(
+  "/:id/documents/:docId",
+  authorize("SUPER_ADMIN", "HOSPITAL_ADMIN", "RECEPTIONIST", "DOCTOR"),
+  removePatientDocumentHandler,
 );
 
 export { patientsRoutes };

@@ -180,6 +180,37 @@ export async function addPatientDocument(
 }
 
 /**
+ * Remove a patient document and its backing file-upload record (if any).
+ * Admins may remove any patient document; other roles can only remove
+ * documents they uploaded themselves.
+ */
+export async function removePatientDocument(
+  patientId: string,
+  docId: string,
+  actor: { id?: string; role?: string },
+) {
+  const doc = await prisma.patientDocument.findFirst({ where: { id: docId, patientId } });
+  if (!doc) throw new AppError("Document not found", 404, undefined, "NOT_FOUND");
+
+  const isAdmin = actor.role === "SUPER_ADMIN" || actor.role === "HOSPITAL_ADMIN";
+  if (!isAdmin && doc.uploadedBy !== actor.id) {
+    throw new AppError("You do not have access to this document", 403, undefined, "FORBIDDEN");
+  }
+
+  // Soft-delete the backing file-upload row if one exists (S3 tombstone).
+  const file = await prisma.fileUpload.findFirst({ where: { s3Key: doc.s3Key } });
+  if (file) {
+    await prisma.fileUpload.update({
+      where: { id: file.id },
+      data: { status: "FAILED" },
+    });
+  }
+
+  await prisma.patientDocument.delete({ where: { id: doc.id } });
+  return { id: doc.id, deleted: true };
+}
+
+/**
  * Merge two duplicate patient records (FR 9.4-05). Audit-logged, irreversible.
  */
 export async function mergePatients(data: {
