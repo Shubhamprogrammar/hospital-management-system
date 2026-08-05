@@ -68,8 +68,8 @@ export function completeAppointment(id: string) {
   return api.patch<Appointment>(`/appointments/${id}/complete`);
 }
 
-export function getAppointmentQueue(query: { departmentId?: string; doctorId?: string }) {
-  return api.get<OpdQueueItem[]>("/appointments/queue", query);
+export function getAppointmentQueue(query: { departmentId?: string; doctorId?: string; date?: string } = {}) {
+  return api.get<Appointment[]>("/appointments/queue", query);
 }
 
 // ---------- OPD ----------

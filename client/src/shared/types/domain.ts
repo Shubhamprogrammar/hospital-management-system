@@ -166,6 +166,7 @@ export interface Appointment {
   patient?: { id: string; name: string; uhid: string; phone: string };
   doctor?: { id: string; name: string; specialization: string };
   department?: { id: string; name: string; code: string };
+  opdVisit?: { id: string; tokenNumber: string; status: string };
 }
 
 export type OpdVisitStatus =

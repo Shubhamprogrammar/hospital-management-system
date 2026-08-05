@@ -8,13 +8,8 @@ import { ROLES } from "../../config/auth.js";
 import { resolvePatientByUser } from "../patients/patients.service.js";
 import { getDoctorByUser } from "../doctors/doctors.service.js";
 
-const ACTIVE_STATUSES: AppointmentStatus[] = [
-  "BOOKED",
-  "CHECKED_IN",
-  "COMPLETED",
-  "NO_SHOW",
-  "NEEDS_RESCHEDULE",
-];
+/** Statuses that belong on the live waiting list — patients yet to be seen. */
+const QUEUE_STATUSES: AppointmentStatus[] = ["BOOKED", "CHECKED_IN"];
 
 function slotKeyFor(doctorId: string, target: Date, slotStartTime: string): string {
   return `${doctorId}:${target.toISOString().split("T")[0]}:${slotStartTime}`;
@@ -532,23 +527,31 @@ export async function checkInAppointment(id: string, tokenNumber: string) {
   return visit;
 }
 
-/** Live queue for a doctor's day (FR 10.7-07). */
-export async function getDoctorQueue(doctorId: string, date: string) {
+/** Live waiting list for a doctor's day (FR 10.7-07). Without a doctor, lists everyone waiting today across departments. */
+export async function getDoctorQueue(doctorId: string | undefined, date: string) {
   const d = new Date(date);
   const next = new Date(d);
   next.setDate(next.getDate() + 1);
 
   const appointments = await prisma.appointment.findMany({
     where: {
-      doctorId,
+      ...(doctorId ? { doctorId } : {}),
       appointmentDate: { gte: d, lt: next },
-      status: { in: ACTIVE_STATUSES },
+      status: { in: QUEUE_STATUSES },
     },
     include: {
       patient: { select: { id: true, name: true, uhid: true } },
+      doctor: { select: { id: true, specialization: true, user: { select: { name: true } } } },
+      department: { select: { id: true, name: true, code: true } },
       opdVisit: { select: { id: true, tokenNumber: true, status: true } },
     },
-    orderBy: { slotStartTime: "asc" },
+    orderBy: [
+      { departmentId: "asc" },
+      // Patients already checked in (have an OPD token) go ahead of booked ones.
+      { opdVisit: { tokenNumber: "asc" } },
+      { slotStartTime: "asc" },
+      { createdAt: "asc" },
+    ],
   });
 
   return appointments;

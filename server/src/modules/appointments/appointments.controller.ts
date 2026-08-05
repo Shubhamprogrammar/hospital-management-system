@@ -222,10 +222,9 @@ export const checkInAppointmentHandler = catchAsync(async (req: Request, res: Re
 });
 
 export const getQueueHandler = catchAsync(async (req: Request, res: Response) => {
-  const { doctorId, date } = req.query;
-  if (!doctorId || !date) {
-    throw new AppError("doctorId and date query params are required", 400, undefined, "VALIDATION_ERROR");
-  }
-  const queue = await getDoctorQueue(doctorId as string, date as string);
+  const doctorId = req.query.doctorId as string | undefined;
+  const today = new Date().toISOString().split("T")[0] as string;
+  const date = (req.query.date as string | undefined) ?? today;
+  const queue = await getDoctorQueue(doctorId, date);
   sendSuccess(res, queue);
 });

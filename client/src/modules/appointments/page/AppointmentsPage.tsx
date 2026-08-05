@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
-import { CalendarClockIcon, CheckIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
+import { CalendarClockIcon, CheckIcon, PlusIcon, RefreshCwIcon, SearchIcon, XIcon } from "lucide-react";
 import {
   APPOINTMENT_STATUSES,
   bookSchema,
@@ -85,6 +85,10 @@ export default function AppointmentsPage() {
     queryKey: ["appointments", "queue"],
     queryFn: () => getAppointmentQueue({}),
     enabled: queueOpen,
+    // "Live" list: keep refreshing while the dialog is open so check-ins,
+    // completions and new bookings appear without reopening it.
+    refetchInterval: queueOpen ? 15_000 : false,
+    refetchOnWindowFocus: queueOpen,
   });
 
   // Pending requests awaiting receptionist review (reviewers only).
@@ -494,23 +498,45 @@ export default function AppointmentsPage() {
             ) : queue.isError ? (
               <ErrorState error={queue.error} onRetry={() => queue.refetch()} />
             ) : (queue.data ?? []).length === 0 ? (
-              <EmptyState icon={CalendarClockIcon} title="Queue is empty" />
+              <EmptyState icon={CalendarClockIcon} title="No one is waiting right now" description="Booked and checked-in patients for today will appear here as the queue builds." />
             ) : (
-              <div className="space-y-2">
-                {queue.data?.map((entry) => (
-                  <div key={entry.visit.id} className="flex items-center justify-between gap-3 rounded-md border border-border px-4 py-3">
-                    <div>
-                      <p className="text-sm font-medium">{entry.visit.patient?.name}</p>
-                      <p className="text-xs text-muted-foreground">Token {entry.visit.tokenNumber} · {entry.visit.status.replace(/_/g, " ")}</p>
+              <div className="space-y-4">
+                {groupByDepartment(queue.data ?? []).map(({ department, items }) => (
+                  <div key={department.id}>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <p className="text-sm font-semibold">{department.name}</p>
+                      <p className="text-xs text-muted-foreground">{items.length} waiting</p>
                     </div>
-                    <div className="text-right text-xs text-muted-foreground">
-                      <p>Position {entry.position}</p>
-                      {entry.avgWaitMinutes != null && <p>~{entry.avgWaitMinutes}m wait</p>}
+                    <div className="space-y-2">
+                      {items.map((a) => (
+                        <div key={a.id} className="flex items-center justify-between gap-3 rounded-md border border-border px-4 py-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">
+                              {a.patient?.name ?? "—"} <span className="font-mono text-xs text-muted-foreground">{a.patient?.uhid}</span>
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {a.doctor?.name ?? "Doctor"} · {a.slotStartTime}–{a.slotEndTime}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <StatusBadge status={a.status} />
+                            {a.opdVisit && <p className="mt-0.5 text-xs text-muted-foreground">Token {a.opdVisit.tokenNumber}</p>}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
               </div>
             )}
+            <DialogFooter>
+              <p className="mr-auto text-xs text-muted-foreground">
+                {queue.dataUpdatedAt ? `Updated ${new Date(queue.dataUpdatedAt).toLocaleTimeString()}` : "Live"}
+              </p>
+              <Button variant="outline" size="sm" disabled={queue.isFetching} onClick={() => queue.refetch()}>
+                <RefreshCwIcon className={queue.isFetching ? "animate-spin" : ""} /> Refresh
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
@@ -555,6 +581,21 @@ function todayStr() {
   const now = new Date();
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
   return local.toISOString().split("T")[0];
+}
+
+/** Group queue entries by department, preserving the server's order (checked-in first). */
+function groupByDepartment(items: Appointment[]) {
+  const groups = new Map<string, { department: { id: string; name?: string | null }; items: Appointment[] }>();
+  for (const a of items) {
+    const deptId = a.department?.id ?? "unknown";
+    const existing = groups.get(deptId);
+    if (existing) {
+      existing.items.push(a);
+    } else {
+      groups.set(deptId, { department: a.department ?? { id: deptId }, items: [a] });
+    }
+  }
+  return Array.from(groups.values());
 }
 
 /** Shared department/doctor/date/slot/mode fields for both dialogs. */
