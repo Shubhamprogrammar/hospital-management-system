@@ -24,7 +24,9 @@ interface FormFieldContextValue<
   name: TName;
 }
 
-const FormFieldContext = React.createContext<FormFieldContextValue | null>(null);
+const FormFieldContext = React.createContext<FormFieldContextValue | null>(
+  null,
+);
 
 function FormField<
   TFieldValues extends FieldValues = FieldValues,
@@ -71,12 +73,19 @@ function FormItem({ className, ...props }: React.ComponentProps<"div">) {
   const id = React.useId();
   return (
     <FormItemContext.Provider value={{ id }}>
-      <div data-slot="form-item" className={cn("grid gap-1.5", className)} {...props} />
+      <div
+        data-slot="form-item"
+        className={cn("grid gap-1.5", className)}
+        {...props}
+      />
     </FormItemContext.Provider>
   );
 }
 
-function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) {
+function FormLabel({
+  className,
+  ...props
+}: React.ComponentProps<typeof Label>) {
   const { error, formItemId } = useFormField();
   return (
     <Label
@@ -90,12 +99,15 @@ function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) 
 }
 
 function FormControl({ ...props }: React.ComponentProps<typeof Slot>) {
-  const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
+  const { error, formItemId, formDescriptionId, formMessageId } =
+    useFormField();
   return (
     <Slot
       data-slot="form-control"
       id={formItemId}
-      aria-describedby={error ? `${formDescriptionId} ${formMessageId}` : formDescriptionId}
+      aria-describedby={
+        error ? `${formDescriptionId} ${formMessageId}` : formDescriptionId
+      }
       aria-invalid={!!error}
       {...props}
     />
@@ -131,4 +143,13 @@ function FormMessage({ className, ...props }: React.ComponentProps<"p">) {
   );
 }
 
-export { useFormField, Form, FormItem, FormLabel, FormControl, FormDescription, FormMessage, FormField };
+export {
+  useFormField,
+  Form,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormDescription,
+  FormMessage,
+  FormField,
+};
