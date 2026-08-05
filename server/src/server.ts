@@ -35,7 +35,7 @@ async function main() {
   const server = app.listen(env.PORT, () => {
     logger.info(`Server running on port ${env.PORT}`);
     console.log(`
-🚀 Hospital Management System API
+🚀 Hospital Management System
    • Environment: ${env.NODE_ENV}
    • Port: ${env.PORT}
    • Base URL: http://localhost:${env.PORT}/api/v1

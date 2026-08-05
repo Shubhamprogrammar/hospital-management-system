@@ -9,7 +9,6 @@ import {
   assignVehicleHandler,
   updateTripStatusHandler,
   trackTripHandler,
-  listMyTripsHandler,
 } from "./ambulance.controller.js";
 
 const ambulanceRoutes = Router();
@@ -46,11 +45,6 @@ ambulanceRoutes.patch(
   "/trips/:id/status",
   authorize("SUPER_ADMIN", "HOSPITAL_ADMIN", "AMBULANCE_DRIVER"),
   updateTripStatusHandler,
-);
-ambulanceRoutes.get(
-  "/trips/mine",
-  authorize("SUPER_ADMIN", "HOSPITAL_ADMIN", "AMBULANCE_DRIVER"),
-  listMyTripsHandler,
 );
 ambulanceRoutes.get(
   "/trips/:id/track",

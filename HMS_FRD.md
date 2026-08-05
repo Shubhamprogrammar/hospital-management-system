@@ -700,25 +700,22 @@ Appointment date/time must be within doctor's future availability; patient and d
 ### 10.7 API List
 | # | Method | Route | Purpose |
 |---|---|---|---|
-|1| POST | `/api/v1/appointments` | Create appointment (patient → `PENDING` request; staff → `BOOKED` directly) |
+|1| POST | `/api/v1/appointments` | Book appointment |
 |2| GET | `/api/v1/appointments` | List/filter (by patient, doctor, date, status) |
 |3| GET | `/api/v1/appointments/:id` | Detail |
-|4| PATCH | `/api/v1/appointments/:id/approve` | Approve `PENDING` request → `BOOKED` + notify patient/doctor |
-|5| PATCH | `/api/v1/appointments/:id/reject` | Reject `PENDING` request → `REJECTED` + notify patient with reason |
-|6| PATCH | `/api/v1/appointments/:id/reschedule` | Reschedule (patient → back to `PENDING`; staff → direct `BOOKED`) |
-|7| PATCH | `/api/v1/appointments/:id/cancel` | Cancel |
-|8| POST | `/api/v1/appointments/:id/check-in` | Convert to OPD visit + issue token |
-|9| GET | `/api/v1/appointments/queue?doctorId=&date=` | Live queue for a doctor's day |
-|10| PATCH | `/api/v1/appointments/:id/complete` | Mark done: `BOOKED`/`CHECKED_IN` → `COMPLETED` (doctor: own only) |
+|4| PATCH | `/api/v1/appointments/:id/reschedule` | Reschedule |
+|5| PATCH | `/api/v1/appointments/:id/cancel` | Cancel |
+|6| POST | `/api/v1/appointments/:id/check-in` | Convert to OPD visit + issue token |
+|7| GET | `/api/v1/appointments/queue?doctorId=&date=` | Live queue for a doctor's day |
 
 **POST /api/v1/appointments**
-- Request: `{ patientId?, doctorId, departmentId, date, slotStartTime, reason?, mode: "IN_PERSON"|"TELECONSULT" }`
-- Response: `{ id, status: "PENDING"|"BOOKED", tokenPrefix }` — `patientId` is forced to the caller's own Patient record for `PATIENT` role.
-- Business Logic: verify doctor active + not on leave + department active + slot free → insert row (`PENDING` for patient self-service, `BOOKED` for staff) → on `BOOKED` reserve unique `slotKey`; on `PENDING` notify receptionists.
+- Request: `{ patientId, doctorId, departmentId, date, slotStartTime, reason?, mode: "IN_PERSON"|"TELECONSULT" }`
+- Response: `{ id, status: "CONFIRMED", tokenPrefix }`
+- Business Logic: acquire Postgres advisory lock on `(doctorId,date,slotStartTime)` → verify slot free (query appointments + doctor_leaves) → insert row status `CONFIRMED` → release lock → enqueue reminder jobs → emit socket `appointments:booked`.
 
 ### 10.8 Database Tables
-`appointments(id, patient_id FK, doctor_id FK, department_id FK, appointment_date date, slot_start_time time, slot_end_time time, mode ENUM, status ENUM(PENDING,BOOKED,CHECKED_IN,COMPLETED,CANCELLED,REJECTED,NO_SHOW,NEEDS_RESCHEDULE), reason text, created_by FK users, reviewed_by FK users, decision_note text, created_at, updated_at)`
-UNIQUE constraint: `slot_key` (non-null only while `BOOKED` — `PENDING` rows reserve no slot).
+`appointments(id, patient_id FK, doctor_id FK, department_id FK, appointment_date date, slot_start_time time, slot_end_time time, mode ENUM, status ENUM(CONFIRMED,CHECKED_IN,COMPLETED,CANCELLED,NO_SHOW,NEEDS_RESCHEDULE), reason text, created_by FK users, created_at, updated_at)`
+UNIQUE constraint: `(doctor_id, appointment_date, slot_start_time) WHERE status NOT IN ('CANCELLED')`
 
 ### 10.9 Relationships
 `appointments.patient_id → patients.id`, `.doctor_id → doctors.id`, `.department_id → departments.id`; 1:1 optional link to `opd_visits.appointment_id` once checked in.
@@ -736,7 +733,7 @@ Advisory-lock pattern backed by Redis `SET NX PX` as a fast pre-check before DB 
 SMS/Email/Push confirmation, reminders, cancellation notice to both patient and doctor.
 
 ### 10.14 Socket Events
-`appointments:requested` (new pending request → admins/reception), `appointments:booked`, `appointments:rejected`, `appointments:cancelled`, `appointments:queue-updated { doctorId, date, queue[] }`
+`appointments:booked`, `appointments:cancelled`, `appointments:queue-updated { doctorId, date, queue[] }`
 
 ### 10.15 Error Handling
 `ERR_SLOT_TAKEN` (409), `ERR_CANCEL_WINDOW_PASSED`, `ERR_DOCTOR_UNAVAILABLE`.

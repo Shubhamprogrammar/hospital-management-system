@@ -29,7 +29,7 @@ export const presignHandler = catchAsync(async (req: Request, res: Response) => 
 
 export const confirmUploadHandler = catchAsync(async (req: Request, res: Response) => {
   const actor = (req as any).user;
-  const file = await confirmUpload(req.params.id, req.body);
+  const file = await confirmUpload(req.params.id);
   writeAuditLog(
     {
       actorId: actor?.id,
@@ -46,13 +46,13 @@ export const confirmUploadHandler = catchAsync(async (req: Request, res: Respons
 
 export const getDownloadUrlHandler = catchAsync(async (req: Request, res: Response) => {
   const actor = (req as any).user;
-  const result = await getDownloadUrl(req.params.id, actor.id, actor.role);
+  const result = await getDownloadUrl(req.params.id, actor.id);
   sendSuccess(res, result);
 });
 
 export const deleteUploadHandler = catchAsync(async (req: Request, res: Response) => {
   const actor = (req as any).user;
-  const file = await softDeleteUpload(req.params.id, actor.id, actor.role);
+  const file = await softDeleteUpload(req.params.id, actor.id);
   writeAuditLog(
     {
       actorId: actor?.id,

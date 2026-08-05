@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../../core/middleware/auth.middleware.js";
-import { authorizeExact } from "../../core/middleware/authorize.js";
+import { authorize } from "../../core/middleware/authorize.js";
 import {
   createDoctorHandler,
   listDoctorsHandler,
@@ -10,24 +10,36 @@ import {
   markLeaveHandler,
   getSlotsHandler,
   deactivateDoctorHandler,
-  getMeHandler,
 } from "./doctors.controller.js";
 
 const doctorsRoutes = Router();
 
 doctorsRoutes.use(authMiddleware);
 
-// Reads remain authenticated, but doctors only see their own profile.
-doctorsRoutes.get("/me", getMeHandler);
+// Public-ish reads (any authenticated role)
 doctorsRoutes.get("/", listDoctorsHandler);
 doctorsRoutes.get("/:id/slots", getSlotsHandler);
 doctorsRoutes.get("/:id", getDoctorHandler);
 
-// Self-service doctor profile management only.
-doctorsRoutes.post("/", authorizeExact("DOCTOR"), createDoctorHandler);
-doctorsRoutes.delete("/:id", authorizeExact("DOCTOR"), deactivateDoctorHandler);
-doctorsRoutes.patch("/:id", authorizeExact("DOCTOR"), updateDoctorHandler);
-doctorsRoutes.post("/:id/availability", authorizeExact("DOCTOR"), setAvailabilityHandler);
-doctorsRoutes.post("/:id/leave", authorizeExact("DOCTOR"), markLeaveHandler);
+// Admin creates/deactivates profiles
+doctorsRoutes.post("/", authorize("SUPER_ADMIN", "HOSPITAL_ADMIN"), createDoctorHandler);
+doctorsRoutes.delete("/:id", authorize("SUPER_ADMIN", "HOSPITAL_ADMIN"), deactivateDoctorHandler);
+
+// Doctor (self) or admin manages availability/leaves; profile updates
+doctorsRoutes.patch(
+  "/:id",
+  authorize("SUPER_ADMIN", "HOSPITAL_ADMIN", "DOCTOR"),
+  updateDoctorHandler,
+);
+doctorsRoutes.post(
+  "/:id/availability",
+  authorize("SUPER_ADMIN", "HOSPITAL_ADMIN", "DOCTOR"),
+  setAvailabilityHandler,
+);
+doctorsRoutes.post(
+  "/:id/leave",
+  authorize("SUPER_ADMIN", "HOSPITAL_ADMIN", "DOCTOR"),
+  markLeaveHandler,
+);
 
 export { doctorsRoutes };

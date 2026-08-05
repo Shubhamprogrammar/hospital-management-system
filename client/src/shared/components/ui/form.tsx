@@ -24,9 +24,7 @@ interface FormFieldContextValue<
   name: TName;
 }
 
-const FormFieldContext = React.createContext<FormFieldContextValue | null>(
-  null,
-);
+const FormFieldContext = React.createContext<FormFieldContextValue | null>(null);
 
 function FormField<
   TFieldValues extends FieldValues = FieldValues,
@@ -42,16 +40,13 @@ function FormField<
 function useFormField() {
   const fieldContext = React.useContext(FormFieldContext);
   const itemContext = React.useContext(FormItemContext);
-  // Guard BEFORE reading context values — previously the null dereference
-  // happened first, producing a confusing "Cannot read properties of null"
-  // TypeError (and crashing the whole page) instead of this clear error.
-  if (!fieldContext || !itemContext) {
-    throw new Error("useFormField should be used within <FormField>");
-  }
   const { getFieldState } = useFormContext();
-  const formState = useFormState({ name: fieldContext.name });
-  const fieldState = getFieldState(fieldContext.name, formState);
-  const { id } = itemContext;
+  const formState = useFormState({ name: fieldContext?.name });
+  const fieldState = getFieldState(fieldContext!.name, formState);
+
+  if (!fieldContext) throw new Error("useFormField should be used within <FormField>");
+
+  const { id } = itemContext!;
 
   return {
     id,
@@ -73,29 +68,12 @@ function FormItem({ className, ...props }: React.ComponentProps<"div">) {
   const id = React.useId();
   return (
     <FormItemContext.Provider value={{ id }}>
-      <div
-        data-slot="form-item"
-        className={cn("grid gap-1.5", className)}
-        {...props}
-      />
+      <div data-slot="form-item" className={cn("grid gap-1.5", className)} {...props} />
     </FormItemContext.Provider>
   );
 }
 
 function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) {
-  const fieldContext = React.useContext(FormFieldContext);
-  const itemContext = React.useContext(FormItemContext);
-  // Some standalone dialogs (edit/reschedule/upload flows) render <FormLabel>
-  // as a plain field label without a react-hook-form <Form>/<FormField>
-  // wrapper. Fall back to a plain label instead of letting useFormField throw
-  // (which used to crash the whole page via the Next.js error boundary).
-  if (!fieldContext || !itemContext) {
-    return <Label data-slot="form-label" className={className} {...props} />;
-  }
-  return <FormLabelWithField className={className} {...props} />;
-}
-
-function FormLabelWithField({ className, ...props }: React.ComponentProps<typeof Label>) {
   const { error, formItemId } = useFormField();
   return (
     <Label
@@ -109,15 +87,12 @@ function FormLabelWithField({ className, ...props }: React.ComponentProps<typeof
 }
 
 function FormControl({ ...props }: React.ComponentProps<typeof Slot>) {
-  const { error, formItemId, formDescriptionId, formMessageId } =
-    useFormField();
+  const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
   return (
     <Slot
       data-slot="form-control"
       id={formItemId}
-      aria-describedby={
-        error ? `${formDescriptionId} ${formMessageId}` : formDescriptionId
-      }
+      aria-describedby={error ? `${formDescriptionId} ${formMessageId}` : formDescriptionId}
       aria-invalid={!!error}
       {...props}
     />
@@ -153,13 +128,4 @@ function FormMessage({ className, ...props }: React.ComponentProps<"p">) {
   );
 }
 
-export {
-  useFormField,
-  Form,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormDescription,
-  FormMessage,
-  FormField,
-};
+export { useFormField, Form, FormItem, FormLabel, FormControl, FormDescription, FormMessage, FormField };

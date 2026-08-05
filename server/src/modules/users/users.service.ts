@@ -1,29 +1,18 @@
 import { prisma } from "../../config/prisma.js";
-import { auth } from "../../config/auth.js";
-import type { Role } from "../../config/auth.js";
 import { AppError } from "../../core/errors/AppError.js";
 import { cacheDel } from "../../config/redis.js";
 
 /**
  * Create a staff user with role assignment (FR 5.4-01).
  * Sends invitation email (queued) and audit logs (handled in controller).
- *
- * Creation goes through Better Auth's admin API so the user gets a credential
- * Account with a bcrypt-hashed password. Creating via `prisma.user.create()`
- * alone left new staff unable to sign in ("Credential account not found")
- * because no Account row with providerId "credential" was ever created.
  */
-export async function createUser(
-  data: {
-    name: string;
-    email: string;
-    phone?: string;
-    role: string;
-    departmentId?: string;
-    password: string;
-  },
-  headers: Record<string, string>,
-) {
+export async function createUser(data: {
+  name: string;
+  email: string;
+  phone?: string;
+  role: string;
+  departmentId?: string;
+}) {
   const existing = await prisma.user.findFirst({
     where: { email: data.email },
   });
@@ -36,20 +25,29 @@ export async function createUser(
     );
   }
 
-  const result = await auth.api.createUser({
-    headers,
-    body: {
+  // Create user with a random temp password — Better Auth's createUser
+  // is used for hashing; here we create via Prisma with a pending state.
+  const tempPassword = Math.random().toString(36).slice(-10);
+  const user = await prisma.user.create({
+    data: {
       name: data.name,
       email: data.email,
-      password: data.password,
-      role: data.role as Role,
-      data: {
-        phone: data.phone,
-      },
+      phone: data.phone,
+      role: data.role,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      role: true,
+      createdAt: true,
     },
   });
 
-  return { user: result.user, tempPassword: data.password };
+  // TODO: hash tempPassword with bcrypt and enqueue send-invitation-email job
+  return { user, tempPassword };
 }
 
 export async function listUsers(params: {

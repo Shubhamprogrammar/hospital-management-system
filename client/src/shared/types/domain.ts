@@ -10,8 +10,6 @@ export interface Role {
   isSystem: boolean;
   createdAt: string;
   deletedAt: string | null;
-  /** Populated by GET /roles (nested `rolePermissions`). */
-  rolePermissions?: Array<{ permission: { id: string; key: string; module: string } }>;
 }
 
 export interface Permission {
@@ -118,8 +116,6 @@ export interface Patient {
   createdAt: string;
   deletedAt: string | null;
   guardian?: { id: string; name: string; uhid: string } | null;
-  /** Populated by GET /patients/:id (descending by createdAt). */
-  documents?: PatientDocument[];
 }
 
 export interface PatientDocument {
@@ -143,8 +139,8 @@ export interface PatientTimelineEntry {
 
 export type AppointmentMode = "IN_PERSON" | "TELECONSULT";
 export type AppointmentStatus =
-  | "PENDING" | "BOOKED" | "CHECKED_IN" | "COMPLETED"
-  | "CANCELLED" | "REJECTED" | "NO_SHOW" | "NEEDS_RESCHEDULE";
+  | "CONFIRMED" | "CHECKED_IN" | "COMPLETED" | "CANCELLED"
+  | "NO_SHOW" | "NEEDS_RESCHEDULE";
 
 export interface Appointment {
   id: string;
@@ -158,15 +154,12 @@ export interface Appointment {
   status: AppointmentStatus;
   reason: string | null;
   createdBy: string | null;
-  reviewedById: string | null;
-  decisionNote: string | null;
   hospitalId: string | null;
   createdAt: string;
   updatedAt: string;
   patient?: { id: string; name: string; uhid: string; phone: string };
   doctor?: { id: string; name: string; specialization: string };
   department?: { id: string; name: string; code: string };
-  opdVisit?: { id: string; tokenNumber: string; status: string };
 }
 
 export type OpdVisitStatus =
@@ -388,13 +381,6 @@ export interface AmbulanceTrip {
   completedAt: string | null;
   vehicle?: { id: string; registrationNo: string; type: AmbulanceVehicleType } | null;
   driver?: { id: string; name: string | null } | null;
-  /** Populated by GET /trips/mine and GET /trips/:id/track. */
-  request?: {
-    id: string;
-    pickupAddress: string;
-    dropAddress: string | null;
-    patient?: { id: string; name: string; uhid: string; phone: string } | null;
-  } | null;
 }
 
 // ---------- Clinical: Prescriptions ----------
@@ -559,9 +545,6 @@ export interface DispenseItem {
   substitutionReason: string | null;
   drug?: { id: string; name: string };
   batch?: { id: string; batchNo: string; expiryDate: string } | null;
-  /** Populated on detail/list dispense responses (backend `substitutedFromDrug` / `returns`). */
-  substitutedFromDrug?: { id: string; name: string } | null;
-  returns?: Array<{ id: string; quantityReturned: number; reason: string; createdAt: string }>;
 }
 
 export interface PharmacyQueueItem {
@@ -811,7 +794,7 @@ export interface ChatMessage {
   attachments: unknown;
   editedAt: string | null;
   createdAt: string;
-  sender?: { id: string; name: string | null; image: string | null; role?: string };
+  sender?: { id: string; name: string | null; image: string | null };
 }
 
 export type PatientChatStatus = "OPEN" | "ANSWERED" | "CLOSED" | "ESCALATED";
@@ -868,12 +851,9 @@ export interface FileUpload {
 }
 
 export interface PresignResponse {
-  fileId: string;
+  id: string;
   uploadUrl: string;
   s3Key: string;
-  expiresIn: number;
-  /** Signed direct-upload params (Cloudinary) — present when real storage is enabled. */
-  uploadParams?: Record<string, string | number>;
 }
 
 export interface HospitalProfile {
@@ -919,7 +899,6 @@ export interface AuditLog {
   id: string;
   actorId: string | null;
   actorEmail: string | null;
-  actorRole: string | null;
   action: string;
   entityType: string;
   entityId: string | null;

@@ -13,7 +13,6 @@ import {
   finalizeBill,
   issueCreditNote,
   createInsurancePolicy,
-  listInsurancePolicies,
 } from "./billing.service.js";
 
 export const listBillsHandler = catchAsync(async (req: Request, res: Response) => {
@@ -118,9 +117,4 @@ export const issueCreditNoteHandler = catchAsync(async (req: Request, res: Respo
 export const createInsurancePolicyHandler = catchAsync(async (req: Request, res: Response) => {
   const policy = await createInsurancePolicy(req.body);
   sendSuccess(res, policy, 201);
-});
-
-export const listInsurancePoliciesHandler = catchAsync(async (req: Request, res: Response) => {
-  const policies = await listInsurancePolicies(req.query.patientId as string | undefined);
-  sendSuccess(res, policies);
 });

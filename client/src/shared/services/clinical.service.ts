@@ -68,67 +68,24 @@ export interface SuggestInput {
   symptoms?: string[];
 }
 
-export interface AiSuggestedItem {
-  drugId: string;
-  drugName: string;
-  dosage: string;
-  frequency: string;
-  durationDays: number;
-  confidence: number;
-  rationale?: string;
-}
-
-/** Response shape of POST /ai-prescriptions/suggest (matches aiPrescriptions.service.ts). */
-export interface AiSuggestionResult {
-  id: string;
-  suggestedItems: AiSuggestedItem[];
-  overallConfidence: number;
-  disclaimers: string[];
-  context: {
-    patientAllergies: string[];
-    activePrescriptions: string[];
-    interactionWarnings: unknown[];
-    allergyWarnings: unknown[];
-  };
-}
-
-export interface AiDisposalResult {
-  suggestionId: string;
-  prescriptionId?: string;
-  status: string;
-}
-
-export function suggestAiPrescription(input: Omit<SuggestInput, "doctorId">) {
-  // doctorId is resolved server-side from the session (resolveDoctorId).
-  return api.post<AiSuggestionResult>("/ai-prescriptions/suggest", input);
+export function suggestAiPrescription(input: SuggestInput) {
+  return api.post<AiPrescriptionSuggestion>("/ai-prescriptions/suggest", input);
 }
 
 export function getAiSuggestion(id: string) {
   return api.get<AiPrescriptionSuggestion>(`/ai-prescriptions/${id}`);
 }
 
-export function acceptAiSuggestion(id: string) {
-  return api.post<AiDisposalResult>(`/ai-prescriptions/${id}/accept`);
+export function acceptAiSuggestion(id: string, input?: { doctorId?: string }) {
+  return api.post<AiPrescriptionSuggestion>(`/ai-prescriptions/${id}/accept`, input);
 }
 
-export function editAiSuggestion(
-  id: string,
-  input: {
-    items: Array<{
-      drugId: string;
-      dosage: string;
-      frequency: string;
-      durationDays: number;
-      route?: string;
-      instructions?: string;
-    }>;
-  },
-) {
-  return api.patch<AiDisposalResult>(`/ai-prescriptions/${id}/edit`, input);
+export function editAiSuggestion(id: string, input: { suggestedItems?: unknown; diagnosisText?: string }) {
+  return api.patch<AiPrescriptionSuggestion>(`/ai-prescriptions/${id}/edit`, input);
 }
 
-export function rejectAiSuggestion(id: string, input?: { reason?: string }) {
-  return api.post<AiDisposalResult>(`/ai-prescriptions/${id}/reject`, input);
+export function rejectAiSuggestion(id: string, input?: { doctorId?: string; reason?: string }) {
+  return api.post<AiPrescriptionSuggestion>(`/ai-prescriptions/${id}/reject`, input);
 }
 
 // ---------- Laboratory ----------

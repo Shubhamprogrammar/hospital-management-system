@@ -11,7 +11,6 @@ import {
   finalizeBillHandler,
   issueCreditNoteHandler,
   createInsurancePolicyHandler,
-  listInsurancePoliciesHandler,
 } from "./billing.controller.js";
 
 const billingRoutes = Router();
@@ -58,7 +57,6 @@ billingRoutes.post(
   authorize("SUPER_ADMIN", "HOSPITAL_ADMIN", "BILLING_STAFF"),
   issueCreditNoteHandler,
 );
-billingRoutes.get("/insurance-policies", listInsurancePoliciesHandler);
 billingRoutes.post(
   "/insurance-policies",
   authorize("SUPER_ADMIN", "HOSPITAL_ADMIN", "BILLING_STAFF"),

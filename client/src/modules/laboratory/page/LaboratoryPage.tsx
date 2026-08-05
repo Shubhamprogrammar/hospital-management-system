@@ -10,7 +10,6 @@ import { orderSchema, type OrderValues } from "@/modules/laboratory/constant/sch
 
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -28,16 +27,15 @@ import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import { useListQuery } from "@/shared/lib/hooks/useListQuery";
 import {
-  collectSample, createLabOrder, enterResults, listLabOrders, listLabTests, releaseReport, verifyLabResults,
+  collectSample, createLabOrder, listLabOrders, listLabTests, releaseReport, verifyLabResults,
 } from "@/shared/services/clinical.service";
 import { searchPatients } from "@/shared/services/patients.service";
 import { listDoctors } from "@/shared/services/org.service";
-import type { LabOrder, LabOrderStatus, LabTestParameter } from "@/shared/types/domain";
+import type { LabOrder, LabOrderStatus } from "@/shared/types/domain";
 
 export default function LaboratoryPage() {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
-  const [resultsFor, setResultsFor] = useState<LabOrder | null>(null);
   const [statusFilter, setStatusFilter] = useState<LabOrderStatus | "">("");
 
   const list = useListQuery<LabOrder>({
@@ -74,20 +72,6 @@ export default function LaboratoryPage() {
   const collect = useMutation(action((id) => collectSample(id), "Sample collected"));
   const verify = useMutation(action((id) => verifyLabResults(id), "Results verified"));
   const release = useMutation(action((id) => releaseReport(id), "Report released"));
-  const results = useMutation({
-    mutationFn: ({ id, values }: { id: string; values: Record<string, string> }) =>
-      enterResults(id, {
-        results: Object.entries(values)
-          .filter(([, value]) => value.trim() !== "")
-          .map(([testParameterId, value]) => ({ testParameterId, value: value.trim() })),
-      }),
-    onSuccess: () => {
-      toast.success("Results entered");
-      setResultsFor(null);
-      queryClient.invalidateQueries({ queryKey: ["lab"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   return (
     <div>
@@ -139,7 +123,6 @@ export default function LaboratoryPage() {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       {o.status === "ORDERED" && <Button size="sm" variant="outline" onClick={() => collect.mutate(o.id)}>Collect</Button>}
-                      {o.status === "SAMPLE_COLLECTED" && <Button size="sm" variant="outline" onClick={() => setResultsFor(o)}>Enter results</Button>}
                       {o.status === "RESULTS_ENTERED" && <Button size="sm" variant="outline" onClick={() => verify.mutate(o.id)}>Verify</Button>}
                       {o.status === "VERIFIED" && <Button size="sm" onClick={() => release.mutate(o.id)}>Release</Button>}
                     </div>
@@ -217,88 +200,6 @@ export default function LaboratoryPage() {
           </Form>
         </DialogContent>
       </Dialog>
-
-      {/* Enter results dialog */}
-      <EnterResultsDialog
-        order={resultsFor}
-        pending={results.isPending}
-        onClose={() => setResultsFor(null)}
-        onSubmit={(values) => resultsFor && results.mutate({ id: resultsFor.id, values })}
-      />
     </div>
-  );
-}
-
-/** Collects every test parameter across all ordered tests. */
-function parametersOf(order: LabOrder | null): Array<LabTestParameter & { testName: string }> {
-  if (!order) return [];
-  const out: Array<LabTestParameter & { testName: string }> = [];
-  for (const ot of order.orderTests ?? []) {
-    for (const p of ot.test.parameters ?? []) {
-      out.push({ ...p, testName: ot.test.name });
-    }
-  }
-  return out;
-}
-
-function EnterResultsDialog({
-  order, pending, onClose, onSubmit,
-}: {
-  order: LabOrder | null;
-  pending: boolean;
-  onClose: () => void;
-  onSubmit: (values: Record<string, string>) => void;
-}) {
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [syncedKey, setSyncedKey] = useState<string | null>(null);
-  const key = order?.id ?? null;
-  if (key !== syncedKey) {
-    setSyncedKey(key);
-    setValues({});
-  }
-
-  const parameters = parametersOf(order);
-  const filled = Object.values(values).filter((v) => v.trim() !== "").length;
-
-  return (
-    <Dialog open={!!order} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Enter results</DialogTitle>
-          <DialogDescription>
-            {order?.barcode} · {order?.patient?.name}
-          </DialogDescription>
-        </DialogHeader>
-        {parameters.length === 0 ? (
-          <p className="py-4 text-sm text-muted-foreground">No test parameters configured for this order.</p>
-        ) : (
-          <div className="max-h-96 space-y-2 overflow-y-auto">
-            {parameters.map((p) => (
-              <div key={p.id} className="grid grid-cols-[1fr_90px] items-center gap-2 rounded-md border border-border px-3 py-2">
-                <div>
-                  <p className="text-sm font-medium">{p.name}</p>
-                  <p className="text-xs text-muted-foreground">{p.testName}{p.referenceRangeMin != null || p.referenceRangeMax != null ? ` · ref ${p.referenceRangeMin ?? ""}–${p.referenceRangeMax ?? ""}` : ""}</p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    className="h-8 text-sm"
-                    value={values[p.id] ?? ""}
-                    onChange={(e) => setValues((prev) => ({ ...prev, [p.id]: e.target.value }))}
-                    placeholder={p.unit ?? "value"}
-                  />
-                  {p.unit && <span className="text-xs text-muted-foreground">{p.unit}</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={pending || filled === 0} onClick={() => onSubmit(values)}>
-            {pending ? "Saving…" : `Enter results (${filled})`}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

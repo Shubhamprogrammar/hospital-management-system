@@ -44,11 +44,11 @@ export function applyDiscount(billId: string, input: { percentage: number; reaso
   return api.patch<Bill>(`/billing/bills/${billId}/discount`, input);
 }
 
-export function approveDiscount(billId: string, input: { approved: boolean; reason?: string }) {
+export function approveDiscount(billId: string, input?: { approve: boolean; reason?: string }) {
   return api.post<Bill>(`/billing/bills/${billId}/discount/approve`, input);
 }
 
-export function applyInsurance(billId: string, input: { insurancePolicyId: string; coverageAmount: number }) {
+export function applyInsurance(billId: string, input: { policyId: string; amount?: number }) {
   return api.patch<Bill>(`/billing/bills/${billId}/insurance`, input);
 }
 
@@ -62,10 +62,6 @@ export function issueCreditNote(billId: string, input: { amount: number; reason:
 
 export function createInsurancePolicy(input: { patientId: string; providerName: string; policyNo: string; coverageLimit: number; validTill: string }) {
   return api.post<InsurancePolicy>("/billing/insurance-policies", input);
-}
-
-export function listInsurancePolicies(query: { patientId?: string } = {}) {
-  return api.get<InsurancePolicy[]>("/billing/insurance-policies", query);
 }
 
 // ---------- Payments ----------

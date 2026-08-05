@@ -23,7 +23,6 @@ declare module "express-serve-static-core" {
     key: string;
     appointmentId: string;
     visitId: string;
-    docId: string;
   }
 }
 

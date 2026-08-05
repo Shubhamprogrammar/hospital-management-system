@@ -8,11 +8,7 @@ import { env } from "../config/env";
  * signUp.email()/etc. accept them with full type safety.
  */
 export const authClient = createAuthClient({
-  // Same-origin auth: better-auth resolves `basePath` against
-  // window.location.origin, and next.config.ts rewrites /api/v1/auth/* to the
-  // backend — so session cookies stay first-party on the app's own domain.
-  // (A relative `baseURL` string is rejected by the client; it must be absolute.)
-  basePath: env.AUTH_PATH,
+  baseURL: env.AUTH_URL,
   plugins: [
     adminClient(),
     inferAdditionalFields({
@@ -25,12 +21,6 @@ export const authClient = createAuthClient({
       },
     }),
   ],
-  // Trim get-session polling: the proxy re-validates the session on every
-  // navigation, so don't also hammer `/get-session` on every window-focus
-  // event (better-auth's default). refetchInterval stays 0 (no timer polling).
-  sessionOptions: {
-    refetchOnWindowFocus: false,
-  },
   fetchOptions: {
     credentials: "include",
   },
