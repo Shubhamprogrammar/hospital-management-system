@@ -133,24 +133,11 @@ export default function PatientsPage() {
         mimeType: file.type || "application/octet-stream",
         sizeBytes: file.size,
       });
-
-      if (presign.uploadUrl.includes("/api/v1/") || !presign.uploadParams) {
-        // Local dev stub — no real bytes are stored.
-        await confirmUpload(presign.fileId);
-      } else {
-        // Real storage: signed direct upload to Cloudinary.
-        const form = new FormData();
-        form.append("file", file);
-        for (const [key, value] of Object.entries(presign.uploadParams)) form.append(key, String(value));
-        const res = await fetch(presign.uploadUrl, { method: "POST", body: form });
-        if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-        const cloud = await res.json();
-        if (!cloud?.public_id || !cloud?.secure_url) {
-          throw new Error("Upload failed: missing Cloudinary response");
-        }
-        await confirmUpload(presign.fileId, { publicId: cloud.public_id, secureUrl: cloud.secure_url });
+      // Push bytes to the presigned (S3) URL. Local dev returns a confirm-route stub, so skip the PUT.
+      if (presign.uploadUrl && !presign.uploadUrl.includes("/api/v1/")) {
+        await fetch(presign.uploadUrl, { method: "PUT", body: file });
       }
-
+      await confirmUpload(presign.fileId);
       const doc = await addPatientDocument(selectedId!, { docType, s3Key: presign.s3Key });
       return { doc, fileId: presign.fileId };
     },

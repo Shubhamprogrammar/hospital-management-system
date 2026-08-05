@@ -82,20 +82,10 @@ function FormItem({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) {
-  const fieldContext = React.useContext(FormFieldContext);
-  const itemContext = React.useContext(FormItemContext);
-  // Some standalone dialogs (edit/reschedule/upload flows) render <FormLabel>
-  // as a plain field label without a react-hook-form <Form>/<FormField>
-  // wrapper. Fall back to a plain label instead of letting useFormField throw
-  // (which used to crash the whole page via the Next.js error boundary).
-  if (!fieldContext || !itemContext) {
-    return <Label data-slot="form-label" className={className} {...props} />;
-  }
-  return <FormLabelWithField className={className} {...props} />;
-}
-
-function FormLabelWithField({ className, ...props }: React.ComponentProps<typeof Label>) {
+function FormLabel({
+  className,
+  ...props
+}: React.ComponentProps<typeof Label>) {
   const { error, formItemId } = useFormField();
   return (
     <Label
