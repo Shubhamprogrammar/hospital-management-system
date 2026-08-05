@@ -18,8 +18,8 @@ export function presignUpload(input: { filename: string; mimeType: string; sizeB
   return api.post<PresignResponse>("/uploads/presign", input);
 }
 
-export function confirmUpload(id: string) {
-  return api.post<FileUpload>(`/uploads/${id}/confirm`);
+export function confirmUpload(id: string, input?: { publicId: string; secureUrl: string }) {
+  return api.post<FileUpload>(`/uploads/${id}/confirm`, input);
 }
 
 export function getDownloadUrl(id: string) {
