@@ -11,6 +11,8 @@ interface ListQueryOptions<T> {
   queryFn: (params: { page: number; limit: number }) => Promise<ListResult<T>>;
   initialPage?: number;
   pageSize?: number;
+  /** When false the list query is not fetched (e.g. role-specific views). */
+  enabled?: boolean;
 }
 
 export interface ListQueryResult<T> {
@@ -26,12 +28,13 @@ export interface ListQueryResult<T> {
 }
 
 /** Standard paginated-list query hook used by module pages. */
-export function useListQuery<T>({ queryKey, queryFn, initialPage = 1, pageSize = 10 }: ListQueryOptions<T>): ListQueryResult<T> {
+export function useListQuery<T>({ queryKey, queryFn, initialPage = 1, pageSize = 10, enabled = true }: ListQueryOptions<T>): ListQueryResult<T> {
   const [page, setPage] = useState(initialPage);
 
   const query = useQuery({
     queryKey: [...queryKey, page, pageSize],
     queryFn: () => queryFn({ page, limit: pageSize }),
+    enabled,
   });
 
   const meta: PaginationMeta =

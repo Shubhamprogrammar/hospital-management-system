@@ -158,6 +158,24 @@ export async function updateTripStatus(
   return updated;
 }
 
+/**
+ * Active trips assigned to a driver (RBAC audit #4 — driver trip-update UI).
+ */
+export async function listDriverTrips(driverId: string) {
+  return prisma.ambulanceTrip.findMany({
+    where: { driverId, status: { not: "COMPLETED" } },
+    include: {
+      request: {
+        include: {
+          patient: { select: { id: true, uhid: true, name: true, phone: true } },
+        },
+      },
+      vehicle: { select: { id: true, registrationNo: true, type: true } },
+    },
+    orderBy: { startedAt: "desc" },
+  });
+}
+
 export async function trackTrip(tripId: string) {
   const trip = await prisma.ambulanceTrip.findUnique({
     where: { id: tripId },

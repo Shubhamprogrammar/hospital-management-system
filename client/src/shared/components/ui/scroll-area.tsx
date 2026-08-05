@@ -6,11 +6,19 @@ import { cn } from "@/shared/lib/utils";
 function ScrollArea({
   className,
   children,
+  viewportRef,
+  onScroll,
   ...props
-}: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {
+}: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {
+  /** Ref to the scrollable viewport element (e.g. for infinite-scroll anchoring). */
+  viewportRef?: React.Ref<HTMLDivElement>;
+  onScroll?: React.UIEventHandler<HTMLDivElement>;
+}) {
   return (
     <ScrollAreaPrimitive.Root data-slot="scroll-area" className={cn("relative overflow-hidden", className)} {...props}>
       <ScrollAreaPrimitive.Viewport
+        ref={viewportRef}
+        onScroll={onScroll}
         data-slot="scroll-area-viewport"
         className="size-full rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
       >

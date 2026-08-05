@@ -15,7 +15,7 @@ function SheetOverlay({ className, ...props }: React.ComponentProps<typeof Dialo
     <DialogPrimitive.Overlay
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        "fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className,
       )}
       {...props}
@@ -24,7 +24,7 @@ function SheetOverlay({ className, ...props }: React.ComponentProps<typeof Dialo
 }
 
 const sheetVariants = cva(
-  "fixed z-50 gap-4 bg-card border-border shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:duration-300 data-[state=open]:duration-500",
+  "fixed z-50 gap-4 bg-card/80 border-border/70 shadow-popover backdrop-blur-2xl transition ease-in-out data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:duration-300 data-[state=open]:duration-500",
   {
     variants: {
       side: {

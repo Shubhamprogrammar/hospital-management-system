@@ -38,6 +38,10 @@ export class AppError extends Error {
   static internal(message: string = "Internal server error", code?: string): AppError {
     return new AppError(message, 500, undefined, code);
   }
+
+  static serviceUnavailable(message: string = "Service temporarily unavailable", code?: string): AppError {
+    return new AppError(message, 503, undefined, code);
+  }
 }
 
 export class NotFoundError extends AppError {

@@ -95,7 +95,7 @@ export interface CreateBedInput {
   bedType: "GENERAL" | "ICU" | "ISOLATION";
 }
 
-export function listBeds(params: PaginationParams & { wardId?: string; status?: string; search?: string } = {}) {
+export function listBeds(params: PaginationParams & { wardId?: string; status?: string; bedType?: string; search?: string } = {}) {
   return api.list<Bed>("/beds", params);
 }
 

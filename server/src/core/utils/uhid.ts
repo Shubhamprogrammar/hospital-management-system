@@ -1,9 +1,24 @@
+import { prisma } from "../../config/prisma.js";
+
 /**
  * Generates a unique health ID in format HMS-{YY}-{sequence} (FRD 9.4).
  */
 export function generateUhid(sequence: number): string {
   const year = new Date().getFullYear() % 100;
   return `HMS-${String(year).padStart(2, "0")}-${String(sequence).padStart(4, "0")}`;
+}
+
+/**
+ * Next UHID in the current year's sequence. Shared by the patient
+ * registration service and the signup auto-provision path so the
+ * format can't drift between them.
+ */
+export async function generateNextUhid(): Promise<string> {
+  const yearPrefix = String(new Date().getFullYear() % 100).padStart(2, "0");
+  const count = await prisma.patient.count({
+    where: { uhid: { startsWith: `HMS-${yearPrefix}-` } },
+  });
+  return generateUhid(count + 1);
 }
 
 /**

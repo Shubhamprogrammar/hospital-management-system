@@ -58,3 +58,7 @@ export function updateTripStatus(tripId: string, input: { status: AmbulanceTrip[
 export function trackTrip(tripId: string) {
   return api.get<AmbulanceTrip>(`/ambulance/trips/${tripId}/track`);
 }
+
+export function listMyTrips() {
+  return api.get<AmbulanceTrip[]>("/ambulance/trips/mine");
+}

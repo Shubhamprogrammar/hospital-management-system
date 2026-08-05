@@ -14,7 +14,7 @@ import type { PaginationParams } from "@/shared/types/api";
 
 // ---------- Uploads ----------
 
-export function presignUpload(input: { filename: string; mimeType: string; sizeBytes: number; context: string }) {
+export function presignUpload(input: { uploadContext: string; filename: string; mimeType: string; sizeBytes: number }) {
   return api.post<PresignResponse>("/uploads/presign", input);
 }
 
@@ -23,7 +23,8 @@ export function confirmUpload(id: string, input?: { publicId: string; secureUrl:
 }
 
 export function getDownloadUrl(id: string) {
-  return api.get<{ url: string }>(`/uploads/${id}/download-url`);
+  // Server returns `downloadUrl` (signed URL stub in dev, real S3 URL in prod).
+  return api.get<{ fileId: string; downloadUrl: string; expiresIn: number }>(`/uploads/${id}/download-url`);
 }
 
 export function deleteUpload(id: string) {
@@ -40,8 +41,12 @@ export function getEntityHistory(entityType: string, entityId: string) {
   return api.get<AuditLog[]>(`/audit/logs/${entityType}/${entityId}`);
 }
 
-export function exportAuditLogs(input: { filters?: Record<string, unknown> }) {
-  return api.post<{ jobId: string }>("/audit/export", input);
+export function exportAuditLogs(input: {
+  dateFrom: string;
+  dateTo: string;
+  filters?: Record<string, unknown>;
+}) {
+  return api.post<{ id?: string; jobId?: string }>("/audit/export", input);
 }
 
 export function listAuditAnomalies(params: PaginationParams & { severity?: string } = {}) {

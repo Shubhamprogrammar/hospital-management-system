@@ -17,13 +17,15 @@ export async function checkInteractions(
   }[];
   allergies: { drugId: string; allergy: string }[];
 }> {
+  // Drop nullish/empty entries so Prisma never emits `IN (NULL)`.
+  const validDrugIds = drugIds.filter((id): id is string => typeof id === "string" && id.length > 0);
   const [patient, interactions] = await prisma.$transaction([
     prisma.patient.findUnique({ where: { id: patientId } }),
     prisma.drugInteraction.findMany({
       where: {
         OR: [
-          { drugAId: { in: drugIds }, drugBId: { in: drugIds } },
-          { drugBId: { in: drugIds }, drugAId: { in: drugIds } },
+          { drugAId: { in: validDrugIds }, drugBId: { in: validDrugIds } },
+          { drugBId: { in: validDrugIds }, drugAId: { in: validDrugIds } },
         ],
       },
       include: {
@@ -37,9 +39,9 @@ export async function checkInteractions(
 
   // Allergy check against patient's allergy list
   const allergies: { drugId: string; allergy: string }[] = [];
-  if (patient?.allergies?.length) {
+  if (patient?.allergies?.length && validDrugIds.length) {
     const drugs = await prisma.drugMaster.findMany({
-      where: { id: { in: drugIds } },
+      where: { id: { in: validDrugIds } },
       select: { id: true, name: true, genericName: true, category: true },
     });
     for (const drug of drugs) {
@@ -93,8 +95,14 @@ export async function createPrescription(data: {
     }
   }
 
-  // Validate drugs exist
-  const drugIds = data.items.map((i) => i.drugId);
+  // Validate drugs exist.
+  // Drop nullish/empty entries so Prisma never emits `IN (NULL)`, but still
+  // reject the payload if any entry was invalid (matches the old behavior).
+  const rawDrugIds = data.items.map((i) => i.drugId);
+  const drugIds = rawDrugIds.filter((id): id is string => typeof id === "string" && id.length > 0);
+  if (drugIds.length !== rawDrugIds.length) {
+    throw new AppError("One or more drugs do not exist in the drug master", 400, undefined, "ERR_INVALID_DRUG");
+  }
   const drugs = await prisma.drugMaster.findMany({
     where: { id: { in: drugIds } },
     select: { id: true, isControlled: true },

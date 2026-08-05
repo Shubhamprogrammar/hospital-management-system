@@ -14,13 +14,24 @@ import {
 } from "./users.service.js";
 
 export const createUserHandler = catchAsync(async (req: Request, res: Response) => {
-  const { name, email, phone, role, departmentId } = req.body;
+  const { name, email, phone, role, departmentId, password } = req.body;
   if (!name || !email || !role) {
     throw new AppError("name, email, and role are required", 400, undefined, "VALIDATION_ERROR");
   }
+  if (!password || password.length < 8) {
+    throw new AppError(
+      "password is required and must be at least 8 characters",
+      400,
+      undefined,
+      "VALIDATION_ERROR",
+    );
+  }
 
   const actor = (req as any).user;
-  const result = await createUser({ name, email, phone, role, departmentId });
+  const result = await createUser(
+    { name, email, phone, role, departmentId, password },
+    req.headers as Record<string, string>,
+  );
 
   writeAuditLog(
     {
