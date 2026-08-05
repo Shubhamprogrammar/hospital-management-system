@@ -1,6 +1,7 @@
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../core/errors/AppError.js";
 import { cacheDel, cacheGet, cacheSet } from "../../config/redis.js";
+import { ROLES, type Role } from "../../config/auth.js";
 
 export async function createDoctor(data: {
   userId: string;
@@ -24,6 +25,20 @@ export async function createDoctor(data: {
     );
   }
 
+  // A user can have at most one active doctor profile (prevents a doctor
+  // re-registering after already self-completing their profile).
+  const existingProfile = await prisma.doctor.findFirst({
+    where: { userId: data.userId, deletedAt: null },
+  });
+  if (existingProfile) {
+    throw new AppError(
+      "This user already has a doctor profile",
+      409,
+      undefined,
+      "ERR_PROFILE_EXISTS",
+    );
+  }
+
   return prisma.doctor.create({
     data: {
       userId: data.userId,
@@ -36,6 +51,44 @@ export async function createDoctor(data: {
       bio: data.bio,
     },
   });
+}
+
+/**
+ * The doctor profile linked to a user (or null when they don't have one).
+ * Used by GET /doctors/me so a DOCTOR-role user can self-manage their profile.
+ */
+export async function getDoctorByUserId(userId: string) {
+  return prisma.doctor.findFirst({
+    where: { userId, deletedAt: null },
+    include: {
+      user: { select: { id: true, name: true, email: true, phone: true, image: true } },
+      department: { select: { id: true, name: true, code: true } },
+      availability: true,
+    },
+  });
+}
+
+/**
+ * Ownership guard: a DOCTOR-role actor may only manage their OWN profile.
+ * Admins (HOSPITAL_ADMIN) can manage any profile. Returns silently on success.
+ */
+export async function assertDoctorOwnsProfile(
+  actor: { role?: Role | string; id?: string },
+  doctorId: string,
+): Promise<void> {
+  if (actor?.role !== ROLES.DOCTOR) return;
+  const doctor = await prisma.doctor.findFirst({
+    where: { id: doctorId, deletedAt: null },
+    select: { userId: true },
+  });
+  if (!doctor || doctor.userId !== actor.id) {
+    throw new AppError(
+      "You can only manage your own doctor profile",
+      403,
+      undefined,
+      "FORBIDDEN",
+    );
+  }
 }
 
 export async function listDoctors(params: {

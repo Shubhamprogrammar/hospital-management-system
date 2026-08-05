@@ -70,6 +70,11 @@ export function getDoctor(id: string) {
   return api.get<Doctor>(`/doctors/${id}`);
 }
 
+/** The logged-in user's own doctor profile (null when they don't have one yet). */
+export function getDoctorMe() {
+  return api.get<Doctor | null>("/doctors/me");
+}
+
 export function createDoctor(input: CreateDoctorInput) {
   return api.post<Doctor>("/doctors", input);
 }
