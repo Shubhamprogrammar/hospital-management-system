@@ -76,10 +76,12 @@ enum AppointmentMode {
 }
 
 enum AppointmentStatus {
-  CONFIRMED
+  PENDING
+  BOOKED
   CHECKED_IN
   COMPLETED
   CANCELLED
+  REJECTED
   NO_SHOW
   NEEDS_RESCHEDULE
 }
@@ -385,6 +387,7 @@ model User {
   patients         Patient[]
   departmentsAsHod Department[]       @relation("DepartmentHod")
   createdAppointments Appointment[]  @relation("AppointmentCreatedBy")
+  reviewedAppointments Appointment[] @relation("AppointmentReviewedBy")
   chatParticipants ChatParticipant[]
   notificationPreferences NotificationPreference[]
   notifications    Notification[]
@@ -705,19 +708,24 @@ model Appointment {
   slotStartTime   String // "HH:mm"
   slotEndTime     String // "HH:mm"
   mode            AppointmentMode   @default(IN_PERSON)
-  status          AppointmentStatus @default(CONFIRMED)
+  status          AppointmentStatus @default(PENDING)
   reason          String?
   createdBy       String?
+  // Receptionist/admin who approved/rejected the request (null while PENDING).
+  reviewedById    String?
+  // Note attached at approval/rejection time.
+  decisionNote    String?
   hospitalId      String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
-  // Partial-unique emulation: non-null for active (non-cancelled) bookings
+  // Partial-unique emulation: non-null for booked (non-pending) appointments.
   slotKey         String?           @unique
 
   patient    Patient    @relation(fields: [patientId], references: [id])
   doctor     Doctor     @relation(fields: [doctorId], references: [id])
   department Department @relation(fields: [departmentId], references: [id])
   creator    User?      @relation("AppointmentCreatedBy", fields: [createdBy], references: [id])
+  reviewer   User?      @relation("AppointmentReviewedBy", fields: [reviewedById], references: [id])
   opdVisit   OpdVisit?
 
   @@index([patientId, appointmentDate])

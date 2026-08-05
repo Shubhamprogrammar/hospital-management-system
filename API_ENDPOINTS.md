@@ -177,15 +177,22 @@ All frontend calls go through **`client/src/shared/services/api.ts`**:
 
 ## 9. Appointments — `/api/v1/appointments`
 
+Appointment lifecycle: **request → approve/reject → book → check-in → complete**. A `PATIENT` creates a `PENDING` request (their own Patient record is resolved server-side; they can never pick another patient). Receptionist/admin verifies doctor availability, leave, and slot, then `approve` → status `BOOKED` (slot reserved via unique `slotKey`) or `reject` with a `decisionNote`. Both the patient and the doctor are notified on approval/rejection.
+
 | Method | Path | Purpose | Roles | Client usage (`appointments.service.ts`) |
 |---|---|---|---|---|
-| `POST` | `/appointments` | Book appointment `{ patientId, doctorId, departmentId, appointmentDate, slotStartTime, slotEndTime, mode, reason? }`. | Admin, `RECEPTIONIST`, `PATIENT` | `bookAppointment()` — booking form (also powers patient portal booking) |
-| `GET` | `/appointments?status=&doctorId=&departmentId=&date=&search=` | List appointments with filters + pagination. | Any authenticated | `listAppointments()` — appointments table/calendar |
+| `POST` | `/appointments` | Create appointment `{ patientId?, doctorId, departmentId, appointmentDate, slotStartTime, slotEndTime, mode, reason? }`. `patientId` is ignored for `PATIENT` (own record used); their row is created `PENDING`. Staff rows are created `BOOKED` directly. | Admin, `RECEPTIONIST`, `PATIENT` | `bookAppointment()` — staff booking + patient request form |
+| `GET` | `/appointments?status=&doctorId=&departmentId=&date=&search=` | List appointments with filters + pagination. `PATIENT` is scoped to their own record, `DOCTOR` to their own appointments. Date/slot must be in the future. | Any authenticated | `listAppointments()` — appointments table |
 | `GET` | `/appointments/queue?doctorId=&date=` | Live queue for a doctor/day. | Any authenticated | `getAppointmentQueue()` — OPD queue screen |
-| `GET` | `/appointments/:id` | Appointment detail. | Any authenticated | `getAppointment()` |
-| `PATCH` | `/appointments/:id/reschedule` | Reschedule `{ appointmentDate, slotStartTime, slotEndTime }`. | Admin, `RECEPTIONIST`, `PATIENT` | `rescheduleAppointment()` |
-| `PATCH` | `/appointments/:id/cancel` | Cancel `{ reason? }`. | Admin, `RECEPTIONIST`, `PATIENT` | `cancelAppointment()` |
-| `POST` | `/appointments/:id/check-in` | Check patient in (marks arrival, moves to OPD queue). | Admin, `RECEPTIONIST` | `checkInAppointment()` — reception action |
+| `GET` | `/appointments/:id` | Appointment detail. `PATIENT` only sees their own. | Any authenticated | `getAppointment()` |
+| `PATCH` | `/appointments/:id/approve` | Approve a `PENDING` request `{ decisionNote? }` → re-checks doctor leave + slot availability, sets status `BOOKED`, notifies patient + doctor. | Admin, `RECEPTIONIST` | `approveAppointment()` — pending-requests queue |
+| `PATCH` | `/appointments/:id/reject` | Reject a `PENDING` request `{ decisionNote }` → status `REJECTED`, notifies patient with the reason. | Admin, `RECEPTIONIST` | `rejectAppointment()` — pending-requests queue |
+| `PATCH` | `/appointments/:id/reschedule` | Reschedule `{ appointmentDate, slotStartTime, slotEndTime }`. Patient reschedule returns the row to `PENDING` for re-approval; staff reschedule books the new slot directly. New date/slot must be in the future. | Admin, `RECEPTIONIST`, `PATIENT` | `rescheduleAppointment()` |
+| `PATCH` | `/appointments/:id/cancel` | Cancel `{ reason? }`. `PATIENT` may only cancel their own. | Admin, `RECEPTIONIST`, `PATIENT` | `cancelAppointment()` |
+| `POST` | `/appointments/:id/check-in` | Check patient in (marks arrival, moves to OPD queue). Requires `BOOKED`. | Admin, `RECEPTIONIST` | `checkInAppointment()` — reception action |
+| `PATCH` | `/appointments/:id/complete` | Mark done: `BOOKED` / `CHECKED_IN` → `COMPLETED`. `DOCTOR` may only complete their own. | Admin, `RECEPTIONIST`, `DOCTOR` | `completeAppointment()` — mark-done action |
+
+Statuses: `PENDING` (awaiting approval) → `BOOKED` → `CHECKED_IN` → `COMPLETED`, with terminal `REJECTED` / `CANCELLED` and `NO_SHOW` / `NEEDS_RESCHEDULE`.
 
 ---
 

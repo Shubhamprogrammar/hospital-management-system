@@ -13,7 +13,7 @@ import {
   addPatientDocument,
   mergePatients,
   getPatientTimeline,
-  getPatientByUser,
+  resolvePatientByUser,
   linkPatientToUser,
 } from "./patients.service.js";
 
@@ -122,6 +122,6 @@ export const getPatientTimelineHandler = catchAsync(async (req: Request, res: Re
 
 export const getPatientMeHandler = catchAsync(async (req: Request, res: Response) => {
   const actor = (req as any).user;
-  const patient = await getPatientByUser(actor.id);
+  const patient = await resolvePatientByUser(actor.id);
   sendSuccess(res, patient);
 });

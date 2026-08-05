@@ -125,6 +125,17 @@ export async function listDoctors(params: {
   return { total, doctors };
 }
 
+/** Resolve the Doctor record linked to a user account (for DOCTOR-role scoping). */
+export async function getDoctorByUser(userId: string) {
+  return prisma.doctor.findFirst({
+    where: { userId, deletedAt: null },
+    include: {
+      user: { select: { id: true, name: true, email: true, phone: true, image: true } },
+      department: { select: { id: true, name: true, code: true } },
+    },
+  });
+}
+
 export async function getDoctorDetail(id: string) {
   const doctor = await prisma.doctor.findFirst({
     where: { id, deletedAt: null },
