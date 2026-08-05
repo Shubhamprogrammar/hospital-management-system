@@ -6,7 +6,7 @@ const router = Router();
 router.get("/health", (_req, res) => {
   res.json({
     success: true,
-    message: "Hospital Management System API is running",
+    message: "Hospital Management System API is not running",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
   });
