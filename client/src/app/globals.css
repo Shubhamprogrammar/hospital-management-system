@@ -3,6 +3,11 @@
 :root {
   --radius: 0.875rem;
 
+  /* System font stacks (no Google Fonts fetch at build time) */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --font-body: var(--font-sans);
+
   /* Airy, blue-tinted canvas */
   --background: #f4f8fd;
   --foreground: #0f172a;

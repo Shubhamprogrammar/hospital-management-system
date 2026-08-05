@@ -20,8 +20,8 @@ import {
   markDoctorLeave,
   setDoctorAvailability,
   updateDoctor,
-  type Doctor,
 } from "@/shared/services/org.service";
+import type { Doctor } from "@/shared/types/domain";
 import { WEEKDAYS } from "@/modules/doctors/constant/schemas";
 
 const EMPTY_EDIT = { departmentId: "", specialization: "", consultationFee: "", experienceYears: "", bio: "" };
@@ -239,10 +239,8 @@ export function DoctorProfileDialog({
                 <div className="grid grid-cols-2 gap-2">
                   {slotsContent.map((slot, index) => (
                     <div key={index} className="rounded-md border border-border px-3 py-2 text-sm">
-                      <p className="font-medium">{slot.startTime} - {slot.endTime}</p>
-                      <p className={`text-xs ${slot.available ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
-                        {slot.available ? "Available" : "Booked"}
-                      </p>
+                      <p className="font-medium">{slot}</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">Available</p>
                     </div>
                   ))}
                 </div>
