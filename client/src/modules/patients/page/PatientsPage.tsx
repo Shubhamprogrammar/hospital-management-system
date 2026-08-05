@@ -31,9 +31,9 @@ import { useListQuery } from "@/shared/lib/hooks/useListQuery";
 import { useDebouncedValue } from "@/shared/lib/hooks/useDebouncedValue";
 import {
   addPatientDocument, getPatient, getPatientMe, getPatientTimeline, mergePatients,
-  registerPatient, searchPatients, updatePatient, type RegisterPatientInput,
+  registerPatient, removePatientDocument, searchPatients, updatePatient, type RegisterPatientInput,
 } from "@/shared/services/patients.service";
-import { confirmUpload, deleteUpload, getDownloadUrl, presignUpload } from "@/shared/services/platform.service";
+import { confirmUpload, getDownloadUrl, presignUpload } from "@/shared/services/platform.service";
 import { useSession } from "@/shared/lib/auth-client";
 import { hasRole, ROLES, type Role } from "@/shared/types";
 import type { Patient, PatientDocument } from "@/shared/types/domain";
@@ -53,6 +53,7 @@ export default function PatientsPage() {
   const { data: session } = useSession();
   const role = session?.user?.role as Role | undefined;
   const isPatientRole = hasRole(role, ROLES.PATIENT);
+  const isAdminRole = hasRole(role, ROLES.SUPER_ADMIN) || hasRole(role, ROLES.HOSPITAL_ADMIN);
 
   const list = useListQuery<Patient>({
     queryKey: ["patients"],
@@ -155,14 +156,14 @@ export default function PatientsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const removeFile = useMutation({
-    mutationFn: (fileId: string) => deleteUpload(fileId),
-    onSuccess: (_result, fileId) => {
-      toast.success("File deleted");
-      // Drop the session-scoped link so the stale buttons disappear.
+  const removeDoc = useMutation({
+    mutationFn: ({ docId }: { docId: string }) => removePatientDocument(selectedId!, docId),
+    onSuccess: (_result, { docId }) => {
+      toast.success("Document deleted");
+      // Drop the session-scoped file link (download) for the removed doc.
       setUploadedFiles((prev) => {
         const next = { ...prev };
-        for (const [docId, id] of Object.entries(next)) if (id === fileId) delete next[docId];
+        delete next[docId];
         return next;
       });
       queryClient.invalidateQueries({ queryKey: ["patient", selectedId] });
@@ -407,6 +408,7 @@ export default function PatientsPage() {
                   <ul className="space-y-2">
                     {selected.data.documents?.map((doc) => {
                       const fileId = uploadedFiles[doc.id];
+                      const canDelete = isAdminRole || doc.uploadedBy === session?.user?.id;
                       return (
                         <li key={doc.id} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
                           <div className="min-w-0">
@@ -415,28 +417,31 @@ export default function PatientsPage() {
                               {doc.docType.replace(/_/g, " ")} · {new Date(doc.createdAt).toLocaleDateString()}
                             </p>
                           </div>
-                          {fileId && (
-                            <div className="flex shrink-0 gap-1">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="size-7"
-                                title="Download"
-                                onClick={() => download.mutate(fileId)}
-                              >
-                                <DownloadIcon className="size-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="size-7 text-destructive"
-                                title="Delete"
-                                onClick={() => removeFile.mutate(fileId)}
-                              >
-                                <Trash2Icon className="size-4" />
-                              </Button>
-                            </div>
-                          )}
+                      <div className="flex shrink-0 gap-1">
+                        {fileId && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="size-7"
+                            title="Download"
+                            onClick={() => download.mutate(fileId)}
+                          >
+                            <DownloadIcon className="size-4" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="size-7 text-destructive"
+                            title="Delete"
+                            disabled={removeDoc.isPending}
+                            onClick={() => removeDoc.mutate({ docId: doc.id })}
+                          >
+                            <Trash2Icon className="size-4" />
+                          </Button>
+                        )}
+                      </div>
                         </li>
                       );
                     })}
