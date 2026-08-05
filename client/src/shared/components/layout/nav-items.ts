@@ -38,6 +38,11 @@ export interface NavItem {
    * billing-only modules just because both sit at the same level.
    */
   minRoles?: Role[];
+  /**
+   * When false, even system admins do not get the automatic visibility override.
+   * Use for doctor-owned clinical workflows that must remain hidden from other roles.
+   */
+  allowAdminOverride?: boolean;
 }
 
 export interface NavGroup {
@@ -144,6 +149,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/ai-prescriptions",
         icon: SparklesIcon,
         minRoles: [ROLES.DOCTOR],
+        allowAdminOverride: false,
       },
     ],
   },
@@ -240,7 +246,7 @@ export const NAV_GROUPS: NavGroup[] = [
  */
 export function canViewNavItem(role: Role | undefined, item: NavItem): boolean {
   if (!item.minRoles) return true;
-  if (isAdminRole(role)) return true;
+  if (item.allowAdminOverride !== false && isAdminRole(role)) return true;
   return !!role && item.minRoles.includes(role);
 }
 

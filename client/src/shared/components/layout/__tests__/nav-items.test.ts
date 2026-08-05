@@ -19,10 +19,11 @@ describe("canViewNavItem", () => {
     expect(canViewNavItem(ROLES.SUPER_ADMIN, dashboard)).toBe(true);
   });
 
-  it("shows every module to system admins", () => {
+  it("shows every module to system admins except doctor-only private flows", () => {
     for (const item of ALL_ITEMS) {
-      expect(canViewNavItem(ROLES.SUPER_ADMIN, item), item.href).toBe(true);
-      expect(canViewNavItem(ROLES.HOSPITAL_ADMIN, item), item.href).toBe(true);
+      const expected = item.href === "/ai-prescriptions" ? false : true;
+      expect(canViewNavItem(ROLES.SUPER_ADMIN, item), item.href).toBe(expected);
+      expect(canViewNavItem(ROLES.HOSPITAL_ADMIN, item), item.href).toBe(expected);
     }
   });
 
@@ -48,6 +49,7 @@ describe("canViewNavItem", () => {
     const pharmacist = ROLES.PHARMACIST;
     expect(canViewNavItem(pharmacist, itemByHref("/pharmacy"))).toBe(true);
     expect(canViewNavItem(pharmacist, itemByHref("/prescriptions"))).toBe(true);
+    expect(canViewNavItem(pharmacist, itemByHref("/ai-prescriptions"))).toBe(false);
     expect(canViewNavItem(pharmacist, itemByHref("/laboratory"))).toBe(false);
     expect(canViewNavItem(pharmacist, itemByHref("/billing"))).toBe(false);
   });
@@ -67,12 +69,13 @@ describe("canViewNavItem", () => {
     expect(canViewNavItem(ROLES.NURSE, itemByHref("/opd"))).toBe(true);
     expect(canViewNavItem(ROLES.NURSE, itemByHref("/ipd"))).toBe(true);
     expect(canViewNavItem(ROLES.NURSE, itemByHref("/prescriptions"))).toBe(false);
+    expect(canViewNavItem(ROLES.NURSE, itemByHref("/ai-prescriptions"))).toBe(false);
   });
 
   it("patient only sees unrestricted items", () => {
     const patient = ROLES.PATIENT;
     expect(canViewNavItem(patient, itemByHref("/dashboard"))).toBe(true);
-    for (const href of ["/patients", "/chat", "/appointments", "/prescriptions"]) {
+    for (const href of ["/patients", "/chat", "/appointments", "/prescriptions", "/ai-prescriptions"]) {
       expect(canViewNavItem(patient, itemByHref(href)), href).toBe(false);
     }
   });
