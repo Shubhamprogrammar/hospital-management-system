@@ -385,7 +385,7 @@ export default function DoctorsPage() {
                       startTime: v.startTime,
                       endTime: v.endTime,
                       slotDurationMinutes: Number(v.slotDurationMinutes),
-                      clinicRoom: v.clinicRoom.trim() || undefined,
+                      clinicRoom: v.clinicRoom?.trim() || undefined,
                     }],
                   },
                 });
