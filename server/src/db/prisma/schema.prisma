@@ -1700,6 +1700,11 @@ model FileUpload {
   mimeType         String
   sizeBytes        Int
   status           UploadStatus  @default(PENDING)
+  // Cloudinary integration (when CLOUDINARY_* env vars are set): the s3Key is
+  // the Cloudinary public_id (folder path included); resourceType is
+  // image|raw; secureUrl is the delivered HTTPS URL from the upload response.
+  resourceType     String?
+  secureUrl        String?
   createdAt        DateTime      @default(now())
 
   uploader User @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)

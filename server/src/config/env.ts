@@ -24,6 +24,12 @@ const envSchema = z.object({
   // Optional — without a key the assistant falls back to canned replies.
   HUGGINGFACE_API_KEY: z.string().optional(),
   HUGGINGFACE_CHAT_MODEL: z.string().default("meta-llama/Llama-3.1-8B-Instruct:fastest"),
+
+  // Cloudinary (real file storage). All three are required to enable
+  // real uploads; without them the uploads module keeps its local stub.
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 });
 
 function validateEnv() {

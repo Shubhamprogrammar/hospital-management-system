@@ -118,7 +118,10 @@ describe("PatientsPage detail dialog actions", () => {
     platformService.confirmUpload.mockResolvedValue({ id: "f1", status: "SCANNED_CLEAN" });
   });
 
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it("opens the patient detail dialog", async () => {
     renderPage();
@@ -171,6 +174,58 @@ describe("PatientsPage detail dialog actions", () => {
     await waitFor(() =>
       expect(patientsService.updatePatient).toHaveBeenCalledWith("p1",
         expect.objectContaining({ name: "jane doe updated" })),
+    );
+  });
+
+  it("uploads through Cloudinary when presign returns a signed contract", async () => {
+    platformService.presignUpload.mockResolvedValue({
+      fileId: "f1",
+      uploadUrl: "https://api.cloudinary.com/v1_1/hms-test/raw/upload",
+      s3Key: "patient_doc/abc-123/file.pdf",
+      expiresIn: 300,
+      uploadParams: { api_key: "key", timestamp: 1, signature: "sig", folder: "patient_doc/abc-123", public_id: "file.pdf" },
+    });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        public_id: "patient_doc/abc-123/file.pdf",
+        secure_url: "https://res.cloudinary.com/hms-test/raw/upload/file.pdf",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPage();
+    await waitFor(() => expect(screen.getByText("jane doe")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("jane doe"));
+    await waitFor(() => expect(screen.getByText("Upload")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /upload/i }));
+    await screen.findByText("Upload document");
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: { files: [new File(["hello"], "file.pdf", { type: "application/pdf" })] },
+    });
+    const dialogs = screen.getAllByRole("dialog");
+    fireEvent.click(within(dialogs[dialogs.length - 1]).getByRole("button", { name: "Upload" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://api.cloudinary.com/v1_1/hms-test/raw/upload",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    await waitFor(() =>
+      expect(platformService.confirmUpload).toHaveBeenCalledWith("f1", {
+        publicId: "patient_doc/abc-123/file.pdf",
+        secureUrl: "https://res.cloudinary.com/hms-test/raw/upload/file.pdf",
+      }),
+    );
+    await waitFor(() =>
+      expect(patientsService.addPatientDocument).toHaveBeenCalledWith(
+        "p1",
+        expect.objectContaining({ s3Key: "patient_doc/abc-123/file.pdf" }),
+      ),
     );
   });
 
