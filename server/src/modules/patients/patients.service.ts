@@ -2,7 +2,7 @@ import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../core/errors/AppError.js";
 import { generateNextUhid } from "../../core/utils/uhid.js";
 import { cacheDel, cacheGet, cacheSet } from "../../config/redis.js";
-import { destroyCloudinaryAsset } from "../../config/cloudinary.js";
+import { ensurePatientProfile } from "../../core/utils/patientProfile.js";
 
 /**
  * Register a new patient with UHID generation (FR 9.4-01).
@@ -200,8 +200,6 @@ export async function removePatientDocument(
   // Soft-delete the backing file-upload row if one exists (S3 tombstone).
   const file = await prisma.fileUpload.findFirst({ where: { s3Key: doc.s3Key } });
   if (file) {
-    // Best-effort: delete the real asset from Cloudinary (no-op for stub rows).
-    await destroyCloudinaryAsset(file.s3Key, file.resourceType);
     await prisma.fileUpload.update({
       where: { id: file.id },
       data: { status: "FAILED" },

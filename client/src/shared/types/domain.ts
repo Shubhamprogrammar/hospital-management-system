@@ -872,8 +872,6 @@ export interface PresignResponse {
   uploadUrl: string;
   s3Key: string;
   expiresIn: number;
-  /** Signed direct-upload params (Cloudinary) — present when real storage is enabled. */
-  uploadParams?: Record<string, string | number>;
 }
 
 export interface HospitalProfile {
