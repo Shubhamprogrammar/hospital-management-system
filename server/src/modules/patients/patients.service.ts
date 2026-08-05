@@ -1,8 +1,7 @@
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../core/errors/AppError.js";
 import { generateNextUhid } from "../../core/utils/uhid.js";
-import { destroyCloudinaryAsset } from "../../config/cloudinary.js";
-import { cacheDel, cacheGet, cacheSet } from "../../config/redis.js";
+import { cacheGet, cacheSet } from "../../config/redis.js";
 import { destroyCloudinaryAsset } from "../../config/cloudinary.js";
 import { ensurePatientProfile } from "../../core/utils/patientProfile.js";
 
