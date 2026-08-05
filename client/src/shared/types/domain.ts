@@ -918,6 +918,7 @@ export interface IntegrationCredential {
 export interface AuditLog {
   id: string;
   actorId: string | null;
+  actorRole: string | null;
   actorEmail: string | null;
   action: string;
   entityType: string;
