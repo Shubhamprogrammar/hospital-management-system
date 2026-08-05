@@ -16,7 +16,6 @@ import {
   setAvailability,
   markLeave,
   getAvailableSlots,
-  deactivateDoctor,
 } from "./doctors.service.js";
 
 export const createDoctorHandler = catchAsync(async (req: Request, res: Response) => {
@@ -25,11 +24,7 @@ export const createDoctorHandler = catchAsync(async (req: Request, res: Response
   // Self-registration: a DOCTOR can only create their own profile — the
   // userId in the body is ignored and pinned to the authenticated user.
   const body: Record<string, unknown> = { ...req.body };
-  if (actor.role === ROLES.DOCTOR) {
-    body.userId = actor.id;
-  } else if (!body.userId) {
-    throw new AppError("userId is required", 400, undefined, "VALIDATION_ERROR");
-  }
+  body.userId = actor.id;
 
   const doctor = await createDoctor(body as Parameters<typeof createDoctor>[0]);
   writeAuditLog(
@@ -54,6 +49,19 @@ export const getMeHandler = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const listDoctorsHandler = catchAsync(async (req: Request, res: Response) => {
+  const actor = (req as any).user;
+
+  if (actor.role === ROLES.DOCTOR) {
+    const doctor = await getDoctorByUserId(actor.id);
+    const items = doctor ? [doctor] : [];
+    sendPaginated(
+      res,
+      items,
+      buildPaginationMeta(items.length, { page: 1, limit: 1, skip: 0, take: 1 }),
+    );
+    return;
+  }
+
   const pagination = parsePagination(req.query.page, req.query.limit);
   const result = await listDoctors({
     ...pagination,
@@ -66,6 +74,10 @@ export const listDoctorsHandler = catchAsync(async (req: Request, res: Response)
 });
 
 export const getDoctorHandler = catchAsync(async (req: Request, res: Response) => {
+  const actor = (req as any).user;
+  if (actor.role === ROLES.DOCTOR) {
+    await assertDoctorOwnsProfile(actor, req.params.id);
+  }
   const doctor = await getDoctorDetail(req.params.id);
   sendSuccess(res, doctor);
 });
@@ -138,6 +150,10 @@ export const markLeaveHandler = catchAsync(async (req: Request, res: Response) =
 });
 
 export const getSlotsHandler = catchAsync(async (req: Request, res: Response) => {
+  const actor = (req as any).user;
+  if (actor.role === ROLES.DOCTOR) {
+    await assertDoctorOwnsProfile(actor, req.params.id);
+  }
   const date = req.query.date as string | undefined;
   if (!date) throw new AppError("date query param is required (YYYY-MM-DD)", 400, undefined, "VALIDATION_ERROR");
   const slots = await getAvailableSlots(req.params.id, date);
@@ -145,19 +161,5 @@ export const getSlotsHandler = catchAsync(async (req: Request, res: Response) =>
 });
 
 export const deactivateDoctorHandler = catchAsync(async (req: Request, res: Response) => {
-  const actor = (req as any).user;
-  const doctor = await deactivateDoctor(req.params.id);
-  writeAuditLog(
-    {
-      actorId: actor?.id,
-      actorRole: actor?.role,
-      action: "UPDATE",
-      module: "doctors",
-      entityType: "Doctor",
-      entityId: req.params.id,
-      after: { isActive: false },
-    },
-    req,
-  );
-  sendSuccess(res, { id: doctor.id, isActive: false });
+  throw new AppError("Doctor profiles are view-only for admins", 403, undefined, "FORBIDDEN");
 });

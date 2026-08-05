@@ -112,7 +112,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Doctors",
         href: "/doctors",
         icon: StethoscopeIcon,
-        minRoles: [ROLES.DOCTOR],
+        minRoles: [],
       },
       {
         label: "Departments",

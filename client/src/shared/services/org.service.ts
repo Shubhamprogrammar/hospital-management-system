@@ -1,5 +1,5 @@
 import { api } from "@/shared/services/api";
-import type { Department, Doctor, DoctorAvailability, DoctorLeave, TimeSlot } from "@/shared/types/domain";
+import type { Department, Doctor, DoctorAvailability, DoctorLeave } from "@/shared/types/domain";
 import type { PaginationParams } from "@/shared/types/api";
 
 // ---------- Departments ----------
@@ -56,10 +56,20 @@ export interface AvailabilityInput {
   clinicRoom?: string;
 }
 
+export interface SetAvailabilityInput {
+  slots: AvailabilityInput[];
+}
+
 export interface LeaveInput {
   startDate: string;
   endDate: string;
   reason?: string;
+}
+
+export interface DoctorSlotsResponse {
+  date: string;
+  slots: string[];
+  onLeave: boolean;
 }
 
 export function listDoctors(params: PaginationParams & { search?: string; departmentId?: string; specialization?: string } = {}) {
@@ -87,7 +97,7 @@ export function deactivateDoctor(id: string) {
   return api.delete<{ id: string }>(`/doctors/${id}`);
 }
 
-export function setDoctorAvailability(doctorId: string, input: AvailabilityInput) {
+export function setDoctorAvailability(doctorId: string, input: SetAvailabilityInput) {
   return api.post<DoctorAvailability>(`/doctors/${doctorId}/availability`, input);
 }
 
@@ -96,5 +106,5 @@ export function markDoctorLeave(doctorId: string, input: LeaveInput) {
 }
 
 export function getDoctorSlots(doctorId: string, query: { date: string }) {
-  return api.get<TimeSlot[]>(`/doctors/${doctorId}/slots`, query);
+  return api.get<DoctorSlotsResponse>(`/doctors/${doctorId}/slots`, query);
 }
