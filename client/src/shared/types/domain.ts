@@ -143,8 +143,8 @@ export interface PatientTimelineEntry {
 
 export type AppointmentMode = "IN_PERSON" | "TELECONSULT";
 export type AppointmentStatus =
-  | "CONFIRMED" | "CHECKED_IN" | "COMPLETED" | "CANCELLED"
-  | "NO_SHOW" | "NEEDS_RESCHEDULE";
+  | "PENDING" | "BOOKED" | "CHECKED_IN" | "COMPLETED"
+  | "CANCELLED" | "REJECTED" | "NO_SHOW" | "NEEDS_RESCHEDULE";
 
 export interface Appointment {
   id: string;
@@ -158,12 +158,15 @@ export interface Appointment {
   status: AppointmentStatus;
   reason: string | null;
   createdBy: string | null;
+  reviewedById: string | null;
+  decisionNote: string | null;
   hospitalId: string | null;
   createdAt: string;
   updatedAt: string;
   patient?: { id: string; name: string; uhid: string; phone: string };
   doctor?: { id: string; name: string; specialization: string };
   department?: { id: string; name: string; code: string };
+  opdVisit?: { id: string; tokenNumber: string; status: string };
 }
 
 export type OpdVisitStatus =

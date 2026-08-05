@@ -378,6 +378,37 @@ export async function getPatientByUser(userId: string) {
   return patient;
 }
 
+/**
+ * Patient self-service resolver: returns the caller's Patient profile, lazily
+ * provisioning one when the account predates the signup hook or the hook failed
+ * (link an existing reception-registered record by email/phone, or auto-create
+ * from the account when every required field is present). Only throws when a
+ * profile genuinely cannot be produced.
+ */
+export async function resolvePatientByUser(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError("Patient profile not found", 404, undefined, "NOT_FOUND");
+
+  const patient = await ensurePatientProfile({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    dateOfBirth: user.dateOfBirth,
+    gender: user.gender,
+  });
+
+  if (!patient) {
+    throw new AppError(
+      "Patient profile not found. Complete your profile (date of birth and gender) before booking.",
+      404,
+      undefined,
+      "NOT_FOUND",
+    );
+  }
+  return patient;
+}
+
 export async function linkPatientToUser(patientId: string, userId: string) {
   return prisma.patient.update({
     where: { id: patientId },

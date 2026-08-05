@@ -37,10 +37,10 @@ describe("canViewNavItem", () => {
 
   it("doctor sees clinical modules but not finance/pharmacy-only ones", () => {
     const doctor = ROLES.DOCTOR;
-    for (const href of ["/patients", "/opd", "/doctors", "/ipd", "/prescriptions", "/laboratory", "/reports", "/chat"]) {
+    for (const href of ["/patients", "/appointments", "/opd", "/doctors", "/ipd", "/prescriptions", "/laboratory", "/reports", "/chat"]) {
       expect(canViewNavItem(doctor, itemByHref(href)), href).toBe(true);
     }
-    for (const href of ["/appointments", "/pharmacy", "/inventory", "/billing", "/payments", "/beds"]) {
+    for (const href of ["/pharmacy", "/inventory", "/billing", "/payments", "/beds"]) {
       expect(canViewNavItem(doctor, itemByHref(href)), href).toBe(false);
     }
   });
@@ -72,10 +72,11 @@ describe("canViewNavItem", () => {
     expect(canViewNavItem(ROLES.NURSE, itemByHref("/ai-prescriptions"))).toBe(false);
   });
 
-  it("patient only sees unrestricted items", () => {
+  it("patient only sees unrestricted items plus patient appointments", () => {
     const patient = ROLES.PATIENT;
     expect(canViewNavItem(patient, itemByHref("/dashboard"))).toBe(true);
-    for (const href of ["/patients", "/chat", "/appointments", "/prescriptions", "/ai-prescriptions"]) {
+    expect(canViewNavItem(patient, itemByHref("/appointments"))).toBe(true);
+    for (const href of ["/patients", "/chat", "/prescriptions", "/ai-prescriptions"]) {
       expect(canViewNavItem(patient, itemByHref(href)), href).toBe(false);
     }
   });

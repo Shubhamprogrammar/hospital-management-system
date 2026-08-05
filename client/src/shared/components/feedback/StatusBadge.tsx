@@ -2,6 +2,7 @@ import { Badge } from "@/shared/components/ui/badge";
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
   ACTIVE: "success",
+  BOOKED: "success",
   CONFIRMED: "success",
   COMPLETED: "success",
   SUCCESS: "success",

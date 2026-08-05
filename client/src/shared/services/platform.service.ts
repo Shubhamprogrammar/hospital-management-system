@@ -41,8 +41,12 @@ export function getEntityHistory(entityType: string, entityId: string) {
   return api.get<AuditLog[]>(`/audit/logs/${entityType}/${entityId}`);
 }
 
-export function exportAuditLogs(input: { filters?: Record<string, unknown> }) {
-  return api.post<{ jobId: string }>("/audit/export", input);
+export function exportAuditLogs(input: {
+  dateFrom: string;
+  dateTo: string;
+  filters?: Record<string, unknown>;
+}) {
+  return api.post<{ id?: string; jobId?: string }>("/audit/export", input);
 }
 
 export function listAuditAnomalies(params: PaginationParams & { severity?: string } = {}) {

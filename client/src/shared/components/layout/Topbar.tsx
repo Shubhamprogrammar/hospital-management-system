@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BellIcon, LogOutIcon, MenuIcon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
@@ -17,12 +19,14 @@ import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { Sheet, SheetContent, SheetTitle } from "@/shared/components/ui/sheet";
 import { Sidebar } from "@/shared/components/layout/Sidebar";
 import { ThemeToggle } from "@/shared/components/layout/ThemeToggle";
+import { DoctorProfileDialog } from "@/shared/components/layout/DoctorProfileDialog";
 import { signOut, useSession } from "@/shared/lib/auth-client";
 import { useNotifications } from "@/shared/lib/hooks/useNotifications";
 import { useAppDispatch, useAppSelector } from "@/shared/store/hooks";
 import { setMobileNavOpen } from "@/shared/store/slice/uiSlice";
 import { cn } from "@/shared/lib/utils";
-import type { Role } from "@/shared/types";
+import { ROLES, type Role } from "@/shared/types";
+import { getDoctorMe } from "@/shared/services/org.service";
 
 function initials(name?: string | null) {
   if (!name) return "?";
@@ -40,9 +44,15 @@ export function Topbar() {
   const { notifications, unread, markRead, markAllRead } = useNotifications();
   const dispatch = useAppDispatch();
   const mobileNavOpen = useAppSelector((s) => s.ui.mobileNavOpen);
+  const [doctorProfileOpen, setDoctorProfileOpen] = useState(false);
 
   const user = session?.user;
   const userRole = user?.role as Role | undefined;
+  const doctorProfile = useQuery({
+    queryKey: ["doctors", "me", "topbar"],
+    queryFn: () => getDoctorMe(),
+    enabled: userRole === ROLES.DOCTOR,
+  });
 
   const handleSignOut = async () => {
     await signOut();
@@ -132,9 +142,16 @@ export function Topbar() {
             <DropdownMenuLabel>
               <div className="flex flex-col gap-0.5">
                 <span className="font-medium">{user?.name}</span>
-                <span className="text-xs font-normal text-muted-foreground">{userRole?.replace(/_/g, " ")}</span>
-              </div>
+                </div>
             </DropdownMenuLabel>
+            {userRole === ROLES.DOCTOR && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setDoctorProfileOpen(true)}>
+                  Doctor profile
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={handleSignOut}>
               <LogOutIcon /> Sign out
@@ -142,6 +159,13 @@ export function Topbar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <DoctorProfileDialog
+        key={`${doctorProfile.data?.id ?? "none"}-${doctorProfileOpen ? "open" : "closed"}`}
+        open={doctorProfileOpen}
+        onOpenChange={setDoctorProfileOpen}
+        doctorProfile={doctorProfile.data ?? null}
+      />
     </header>
   );
 }

@@ -116,7 +116,7 @@ target matches a real route). But a large amount of backend work has no UI:
 | departments | `GET /:id`, `PATCH /:id`, `GET /:id/doctors` |
 | doctors | `GET /:id`, `POST /` (create), `DELETE /:id`, `PATCH /:id`, `POST /:id/leave`, `GET /:id/slots` — **no create/edit/deactivate doctor UI at all**, only "Availability" |
 | patients | `GET /me`, `PATCH /:id` (no edit UI), `POST /:id/documents`, `POST /merge` |
-| appointments | `GET /:id`, `PATCH /:id/reschedule` (no reschedule UI), `GET /queue` (module has its own queue, unused — frontend only calls OPD's) |
+| appointments | `GET /queue` (module has its own queue, unused — frontend only calls OPD's) |
 | opd | `GET /visits/:id`, `POST /visits/:id/refer-ipd` (no "Refer to IPD" button despite backend support) |
 | ipd | `GET /admissions/:id`, `POST /admissions/:id/rounds`, `POST /admissions/:id/vitals`, `POST /admissions/:id/transfer`, `GET /admissions/:id/discharge-summary` — only Admit/Discharge wired |
 | wards | `GET /:id`, `PATCH /:id`, `GET /:id/census` |
