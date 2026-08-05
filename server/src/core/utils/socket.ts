@@ -21,23 +21,17 @@ export function setupSocket(httpServer: HttpServer): Server {
   io = new Server(httpServer, {
     // Credentials (cookies) are used for auth, so the origin must be explicit
     // (a wildcard is rejected by browsers for credentialed requests).
-    cors: { origin: env.clientUrls, credentials: true, methods: ["GET", "POST"] },
+    cors: { origin: env.CLIENT_URL, credentials: true, methods: ["GET", "POST"] },
   });
 
   io.use(async (socket, next) => {
     try {
-      // Prefer an explicit bearer token (auth: { token } in the handshake),
-      // otherwise fall back to the session cookie — the same mechanism every
-      // REST call uses. The client's Socket.IO connection only sends cookies
-      // (credentials: include), so without this fallback no one can connect.
       const token = socket.handshake.auth?.token;
-      const session = token
-        ? await auth.api.getSession({
-            headers: { authorization: `Bearer ${token}` },
-          })
-        : await auth.api.getSession({
-            headers: { cookie: socket.handshake.headers.cookie ?? "" },
-          });
+      if (!token) return next(new Error("UNAUTHENTICATED"));
+
+      const session = await auth.api.getSession({
+        headers: { authorization: `Bearer ${token}` },
+      });
 
       if (!session) return next(new Error("UNAUTHENTICATED"));
 

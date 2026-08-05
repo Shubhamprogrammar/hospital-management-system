@@ -10,7 +10,6 @@ import {
   assignVehicle,
   updateTripStatus,
   trackTrip,
-  listDriverTrips,
 } from "./ambulance.service.js";
 
 export const addVehicleHandler = catchAsync(async (req: Request, res: Response) => {
@@ -98,10 +97,4 @@ export const updateTripStatusHandler = catchAsync(async (req: Request, res: Resp
 export const trackTripHandler = catchAsync(async (req: Request, res: Response) => {
   const trip = await trackTrip(req.params.id);
   sendSuccess(res, trip);
-});
-
-export const listMyTripsHandler = catchAsync(async (req: Request, res: Response) => {
-  const actor = (req as any).user;
-  const trips = await listDriverTrips(actor.id);
-  sendSuccess(res, trips);
 });

@@ -36,7 +36,6 @@ export const listBedsHandler = catchAsync(async (req: Request, res: Response) =>
     wardId: req.query.wardId as string | undefined,
     status: req.query.status as string | undefined,
     bedType: req.query.bedType as string | undefined,
-    search: req.query.search as string | undefined,
   });
   sendPaginated(res, result.beds, buildPaginationMeta(result.total, pagination));
 });

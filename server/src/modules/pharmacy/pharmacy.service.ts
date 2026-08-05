@@ -234,40 +234,6 @@ export async function processReturn(data: {
   });
 }
 
-/** Recent dispenses with line items — powers returns/substitution UI (RBAC audit #4). */
-export async function listDispenses(limit = 50) {
-  return prisma.pharmacyDispense.findMany({
-    take: limit,
-    orderBy: { createdAt: "desc" },
-    include: {
-      prescription: {
-        include: {
-          patient: { select: { id: true, uhid: true, name: true } },
-          doctor: { select: { id: true, user: { select: { name: true } } } },
-        },
-      },
-      items: {
-        include: {
-          drug: { select: { id: true, name: true } },
-          batch: { select: { id: true, batchNo: true, expiryDate: true } },
-          substitutedFromDrug: { select: { id: true, name: true } },
-          returns: true,
-        },
-      },
-    },
-  });
-}
-
-/** Drug-master catalog for substitution + prescriptions (RBAC audit #4). */
-export async function listDrugCatalog(search?: string) {
-  return prisma.drugMaster.findMany({
-    where: search ? { name: { contains: search, mode: "insensitive" as const } } : {},
-    select: { id: true, name: true, genericName: true, unit: true, isControlled: true },
-    orderBy: { name: "asc" },
-    take: 200,
-  });
-}
-
 /** FEFO suggestion — earliest expiry first (FRD 20.5 BR-02). */
 export async function suggestBatches(drugId: string, quantity: number) {
   const batches = await prisma.inventoryBatch.findMany({
@@ -277,24 +243,11 @@ export async function suggestBatches(drugId: string, quantity: number) {
     },
     orderBy: { expiryDate: "asc" },
   });
-  if (!batches.length) {
-    return { drugId, quantity, fefo: [], fullyCovered: true };
-  }
-
-  // One aggregate instead of a stock query per batch (was N+1).
-  const stock = await prisma.inventoryStockLedger.groupBy({
-    by: ["batchId"],
-    where: { itemId: drugId, batchId: { in: batches.map((b) => b.id) } },
-    _sum: { quantityDelta: true },
-  });
-  const availableByBatch = new Map(
-    stock.map((s) => [s.batchId, s._sum.quantityDelta ?? 0]),
-  );
 
   const suggestion: { batchId: string; batchNo: string; expiryDate: Date; available: number; recommended: number }[] = [];
   let remaining = quantity;
   for (const batch of batches) {
-    const available = availableByBatch.get(batch.id) ?? 0;
+    const available = await computeStock(null, batch.itemId, batch.id);
     if (available <= 0) continue;
     const take = Math.min(available, remaining);
     suggestion.push({

@@ -99,25 +99,15 @@ export async function getDownloadUrl(fileId: string, userId: string) {
   };
 }
 
-export async function softDeleteUpload(fileId: string, userId: string, actorRole?: string) {
+export async function softDeleteUpload(fileId: string, userId: string) {
   const file = await prisma.fileUpload.findUnique({ where: { id: fileId } });
   if (!file) throw new AppError("Upload not found", 404, undefined, "NOT_FOUND");
-
-  // System/hospital admins manage the whole patient record; everyone else can
-  // only touch files they uploaded themselves.
-  const isAdmin = actorRole === "SUPER_ADMIN" || actorRole === "HOSPITAL_ADMIN";
-  if (!isAdmin && file.uploadedBy !== userId) {
+  if (file.uploadedBy !== userId) {
     throw new AppError("You do not have access to this file", 403, undefined, "FORBIDDEN");
   }
 
-  await prisma.fileUpload.update({
+  return prisma.fileUpload.update({
     where: { id: fileId },
     data: { status: "FAILED" }, // tombstone per retention policy
   });
-
-  // Keep the patient's record consistent: removing a file also removes the
-  // PatientDocument rows pointing at it (patient docs list = PatientDocument).
-  await prisma.patientDocument.deleteMany({ where: { s3Key: file.s3Key } });
-
-  return prisma.fileUpload.findUniqueOrThrow({ where: { id: fileId } });
 }

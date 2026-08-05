@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import {
+  getSession,
   listUsers,
   createUser,
   listSessions,
@@ -14,14 +15,12 @@ import { catchAsync } from "../../core/utils/catchAsync.js";
 /**
  * GET /auth/me
  * Returns the current authenticated user's session.
- *
- * The session is attached by `authMiddleware` and reused here — calling
- * `auth.api.getSession()` again would double the session-validation DB queries
- * on every request.
  */
 export const getSessionHandler = catchAsync(
   async (req: Request, res: Response) => {
-    const session = (req as any).session;
+    const session = await getSession(
+      req.headers as Record<string, string>,
+    );
 
     if (!session) {
       throw AppError.unauthorized("No active session");

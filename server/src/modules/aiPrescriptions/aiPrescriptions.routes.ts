@@ -14,10 +14,10 @@ const aiPrescriptionsRoutes = Router();
 aiPrescriptionsRoutes.use(authMiddleware);
 
 // Doctor-only clinical flow
-aiPrescriptionsRoutes.post("/suggest", authorize("DOCTOR"), suggestHandler);
-aiPrescriptionsRoutes.get("/:id", authorize("DOCTOR"), getSuggestionHandler);
-aiPrescriptionsRoutes.post("/:id/accept", authorize("DOCTOR"), acceptSuggestionHandler);
-aiPrescriptionsRoutes.patch("/:id/edit", authorize("DOCTOR"), editSuggestionHandler);
-aiPrescriptionsRoutes.post("/:id/reject", authorize("DOCTOR"), rejectSuggestionHandler);
+aiPrescriptionsRoutes.post("/suggest", authorize("SUPER_ADMIN", "DOCTOR"), suggestHandler);
+aiPrescriptionsRoutes.get("/:id", authorize("SUPER_ADMIN", "DOCTOR"), getSuggestionHandler);
+aiPrescriptionsRoutes.post("/:id/accept", authorize("SUPER_ADMIN", "DOCTOR"), acceptSuggestionHandler);
+aiPrescriptionsRoutes.patch("/:id/edit", authorize("SUPER_ADMIN", "DOCTOR"), editSuggestionHandler);
+aiPrescriptionsRoutes.post("/:id/reject", authorize("SUPER_ADMIN", "DOCTOR"), rejectSuggestionHandler);
 
 export { aiPrescriptionsRoutes };

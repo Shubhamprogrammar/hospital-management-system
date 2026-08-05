@@ -52,7 +52,7 @@ export const getDownloadUrlHandler = catchAsync(async (req: Request, res: Respon
 
 export const deleteUploadHandler = catchAsync(async (req: Request, res: Response) => {
   const actor = (req as any).user;
-  const file = await softDeleteUpload(req.params.id, actor.id, actor.role);
+  const file = await softDeleteUpload(req.params.id, actor.id);
   writeAuditLog(
     {
       actorId: actor?.id,

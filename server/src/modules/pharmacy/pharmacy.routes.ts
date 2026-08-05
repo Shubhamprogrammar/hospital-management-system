@@ -8,8 +8,6 @@ import {
   getDispenseHandler,
   processReturnHandler,
   suggestBatchesHandler,
-  listDispensesHandler,
-  listDrugsHandler,
 } from "./pharmacy.controller.js";
 
 const pharmacyRoutes = Router();
@@ -17,8 +15,6 @@ const pharmacyRoutes = Router();
 pharmacyRoutes.use(authMiddleware);
 
 pharmacyRoutes.get("/queue", getQueueHandler);
-pharmacyRoutes.get("/drugs", listDrugsHandler);
-pharmacyRoutes.get("/dispenses", listDispensesHandler);
 pharmacyRoutes.get("/batches/suggest", suggestBatchesHandler);
 pharmacyRoutes.post("/dispenses", authorize("SUPER_ADMIN", "PHARMACIST"), createDispenseHandler);
 pharmacyRoutes.get("/dispenses/:id", getDispenseHandler);

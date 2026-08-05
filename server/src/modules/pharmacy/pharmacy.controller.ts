@@ -9,8 +9,6 @@ import {
   getDispenseDetail,
   processReturn,
   suggestBatches,
-  listDispenses,
-  listDrugCatalog,
 } from "./pharmacy.service.js";
 
 export const getQueueHandler = catchAsync(async (_req: Request, res: Response) => {
@@ -81,14 +79,4 @@ export const suggestBatchesHandler = catchAsync(async (req: Request, res: Respon
   const { drugId, quantity } = req.query;
   const suggestion = await suggestBatches(drugId as string, Number(quantity ?? 1));
   sendSuccess(res, suggestion);
-});
-
-export const listDispensesHandler = catchAsync(async (_req: Request, res: Response) => {
-  const dispenses = await listDispenses();
-  sendSuccess(res, dispenses);
-});
-
-export const listDrugsHandler = catchAsync(async (req: Request, res: Response) => {
-  const drugs = await listDrugCatalog(req.query.search as string | undefined);
-  sendSuccess(res, drugs);
 });

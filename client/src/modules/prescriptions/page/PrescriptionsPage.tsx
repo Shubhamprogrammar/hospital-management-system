@@ -27,10 +27,7 @@ import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import { useListQuery } from "@/shared/lib/hooks/useListQuery";
-import {
-  checkInteractions, createPrescription, getPrescription, getPrescriptionPdf,
-  listPrescriptions, renewPrescription,
-} from "@/shared/services/clinical.service";
+import { createPrescription, listPrescriptions } from "@/shared/services/clinical.service";
 import { searchPatients } from "@/shared/services/patients.service";
 import { listDoctors } from "@/shared/services/org.service";
 import type { Prescription } from "@/shared/types/domain";
@@ -38,17 +35,8 @@ import type { Prescription } from "@/shared/types/domain";
 export default function PrescriptionsPage() {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
-  const [renewFor, setRenewFor] = useState<Prescription | null>(null);
-  const [interactionResult, setInteractionResult] = useState<{ safe: boolean; conflicts: unknown[] } | null>(null);
 
   const list = useListQuery<Prescription>({ queryKey: ["prescriptions"], queryFn: (params) => listPrescriptions(params) });
-
-  const [detailFor, setDetailFor] = useState<Prescription | null>(null);
-  const detail = useQuery({
-    queryKey: ["prescriptions", "detail", detailFor?.id],
-    queryFn: () => getPrescription(detailFor!.id),
-    enabled: !!detailFor,
-  });
 
   const patients = useQuery({ queryKey: ["patients", "options"], queryFn: () => searchPatients({ limit: 50 }) });
   const doctors = useQuery({ queryKey: ["doctors", "options"], queryFn: () => listDoctors({ limit: 50 }) });  const form = useForm<PrescriptionValues>({
@@ -59,34 +47,6 @@ export default function PrescriptionsPage() {
     },
   });
   const watchedItems = useWatch({ control: form.control, name: "items" });
-
-  const renew = useMutation({
-    mutationFn: ({ id, notes }: { id: string; notes?: string }) => renewPrescription(id, { notes: notes || undefined }),
-    onSuccess: () => {
-      toast.success("Prescription renewed");
-      setRenewFor(null);
-      queryClient.invalidateQueries({ queryKey: ["prescriptions"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const interactions = useMutation({
-    mutationFn: (drugIds: string[]) => checkInteractions({ drugIds }),
-    onSuccess: (data) => setInteractionResult(data),
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const pdf = useMutation({
-    mutationFn: (id: string) => getPrescriptionPdf(id),
-    onSuccess: (data) => {
-      if (data?.url) {
-        window.open(data.url, "_blank", "noopener,noreferrer");
-      } else {
-        toast.error("No PDF URL returned");
-      }
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const create = useMutation({
     mutationFn: (v: PrescriptionValues) =>
@@ -132,7 +92,6 @@ export default function PrescriptionsPage() {
                 <TableHead>Items</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -143,15 +102,6 @@ export default function PrescriptionsPage() {
                   <TableCell>{p.items?.length ?? 0} items</TableCell>
                   <TableCell><StatusBadge status={p.status} /></TableCell>
                   <TableCell className="text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="outline" onClick={() => setDetailFor(p)}>Details</Button>
-                      {p.status === "ACTIVE" && (
-                        <Button size="sm" variant="outline" onClick={() => setRenewFor(p)}>Renew</Button>
-                      )}
-                      <Button size="sm" variant="outline" disabled={pdf.isPending} onClick={() => pdf.mutate(p.id)}>PDF</Button>
-                    </div>
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -200,7 +150,7 @@ export default function PrescriptionsPage() {
                 <FormItem><FormLabel>Notes</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <div className="space-y-2">
-                <p className="text-sm font-medium">Items</p>
+                <FormLabel>Items</FormLabel>
                 {watchedItems.map((_, index) => (
                   <div key={index} className="grid grid-cols-2 gap-2 rounded-md border border-border p-2">
                     <FormField control={form.control} name={`items.${index}.drugName`} render={({ field }) => (
@@ -237,26 +187,6 @@ export default function PrescriptionsPage() {
                   + Add item
                 </Button>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={interactions.isPending}
-                  onClick={() =>
-                    interactions.mutate(form.getValues("items").map((i) => i.drugName.trim()).filter(Boolean))
-                  }
-                >
-                  {interactions.isPending ? "Checking…" : "Check interactions"}
-                </Button>
-                {interactionResult && (
-                  <span className={`text-xs ${interactionResult.safe ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                    {interactionResult.safe
-                      ? `✓ No conflicts (${interactionResult.conflicts.length})`
-                      : `⚠ ${interactionResult.conflicts.length} potential interaction(s)`}
-                  </span>
-                )}
-              </div>
               <DialogFooter>
                 <Button type="submit" disabled={create.isPending}>{create.isPending ? "Creating…" : "Create prescription"}</Button>
               </DialogFooter>
@@ -264,81 +194,6 @@ export default function PrescriptionsPage() {
           </Form>
         </DialogContent>
       </Dialog>
-
-      {/* Detail dialog */}
-      <Dialog open={!!detailFor} onOpenChange={(o) => !o && setDetailFor(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Prescription details</DialogTitle>
-            <DialogDescription>
-              {detailFor?.patient?.name} · {detailFor?.doctor?.name ?? ""}
-            </DialogDescription>
-          </DialogHeader>
-          {detail.isLoading ? (
-            <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
-          ) : detail.isError ? (
-            <ErrorState error={detail.error} onRetry={() => detail.refetch()} />
-          ) : detail.data ? (
-            <div className="flex flex-col gap-4 text-sm">
-              <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-muted-foreground">Status</p><StatusBadge status={detail.data.status} /></div>
-                <div><p className="text-muted-foreground">Created</p><p className="font-medium">{new Date(detail.data.createdAt).toLocaleString()}</p></div>
-              </div>
-              <div>
-                <p className="mb-2 text-muted-foreground">Items ({detail.data.items?.length ?? 0})</p>
-                <div className="space-y-2">
-                  {detail.data.items?.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-                      <div>
-                        <p className="font-medium">{item.drug?.name ?? "Drug"}</p>
-                        <p className="text-xs text-muted-foreground">{item.dosage} · {item.frequency} · {item.durationDays}d</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">{item.route}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {detail.data.notes && (
-                <div>
-                  <p className="mb-1 text-muted-foreground">Notes</p>
-                  <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-3">{detail.data.notes}</p>
-                </div>
-              )}
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-
-      {/* Renew dialog */}
-      <Dialog open={!!renewFor} onOpenChange={(o) => !o && setRenewFor(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Renew prescription</DialogTitle>
-            <DialogDescription>
-              {renewFor?.patient?.name} · {renewFor?.items?.length ?? 0} items · creates a new active prescription superseding this one.
-            </DialogDescription>
-          </DialogHeader>
-          <RenewForm
-            pending={renew.isPending}
-            onSubmit={(notes) => renewFor && renew.mutate({ id: renewFor.id, notes })}
-          />
-        </DialogContent>
-      </Dialog>
     </div>
-  );
-}
-
-function RenewForm({ pending, onSubmit }: { pending: boolean; onSubmit: (notes?: string) => void }) {
-  const [notes, setNotes] = useState("");
-  return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(notes.trim() || undefined); }} className="flex flex-col gap-4">
-      <div className="grid gap-1.5">
-        <FormLabel>Notes (optional)</FormLabel>
-        <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Renewal note…" />
-      </div>
-      <DialogFooter>
-        <Button type="submit" disabled={pending}>{pending ? "Renewing…" : "Renew prescription"}</Button>
-      </DialogFooter>
-    </form>
   );
 }

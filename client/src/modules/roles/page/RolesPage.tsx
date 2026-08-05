@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
@@ -23,23 +23,14 @@ import { Textarea } from "@/shared/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/components/ui/form";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
-import { createRole, deleteRole, getRole, listPermissions, listRoles, updateRole } from "@/shared/services/users.service";
-import type { Role } from "@/shared/types/domain";
+import { createRole, deleteRole, listPermissions, listRoles } from "@/shared/services/users.service";
 
 export default function RolesPage() {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
-  const [editFor, setEditFor] = useState<Role | null>(null);
 
   const roles = useQuery({ queryKey: ["roles"], queryFn: () => listRoles() });
   const permissions = useQuery({ queryKey: ["permissions"], queryFn: () => listPermissions() });
-
-  const [detailFor, setDetailFor] = useState<string | null>(null);
-  const detail = useQuery({
-    queryKey: ["roles", "detail", detailFor],
-    queryFn: () => getRole(detailFor!),
-    enabled: !!detailFor,
-  });
 
   const form = useForm<RoleValues>({
     resolver: zodResolver(roleSchema),
@@ -62,17 +53,6 @@ export default function RolesPage() {
     mutationFn: (id: string) => deleteRole(id),
     onSuccess: () => {
       toast.success("Role deleted");
-      queryClient.invalidateQueries({ queryKey: ["roles"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const edit = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: { name?: string; description?: string; permissionKeys?: string[] } }) =>
-      updateRole(id, input),
-    onSuccess: () => {
-      toast.success("Role updated");
-      setEditFor(null);
       queryClient.invalidateQueries({ queryKey: ["roles"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -112,15 +92,9 @@ export default function RolesPage() {
                   <TableCell className="text-muted-foreground">{r.description ?? "—"}</TableCell>
                   <TableCell><Badge variant={r.isSystem ? "secondary" : "outline"}>{r.isSystem ? "System" : "Custom"}</Badge></TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => setDetailFor(r.id)}>View</Button>
-                      {!r.isSystem && (
-                        <>
-                          <Button size="sm" variant="outline" onClick={() => setEditFor(r)}>Edit</Button>
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => remove.mutate(r.id)}>Delete</Button>
-                        </>
-                      )}
-                    </div>
+                    {!r.isSystem && (
+                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => remove.mutate(r.id)}>Delete</Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -169,139 +143,6 @@ export default function RolesPage() {
           </Form>
         </DialogContent>
       </Dialog>
-
-      <EditRoleDialog
-        role={editFor}
-        permissions={permissions.data ?? []}
-        pending={edit.isPending}
-        onClose={() => setEditFor(null)}
-        onSubmit={(input) => editFor && edit.mutate({ id: editFor.id, input })}
-      />
-
-      {detailFor && <RoleDetailDialog detail={detail} onClose={() => setDetailFor(null)} />}
     </div>
-  );
-}
-
-// ---------- Role detail dialog ----------
-
-function RoleDetailDialog({
-  detail, onClose,
-}: {
-  detail: UseQueryResult<Role, Error>;
-  onClose: () => void;
-}) {
-  const role = detail.data;
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{role?.name}</DialogTitle>
-          <DialogDescription>
-            {role?.isSystem ? "System role" : "Custom role"}{role?.description ? ` · ${role.description}` : ""}
-          </DialogDescription>
-        </DialogHeader>
-        {detail.isLoading ? (
-          <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-7 w-full" />)}</div>
-        ) : detail.isError ? (
-          <ErrorState error={detail.error} />
-        ) : role ? (
-          <div>
-            <p className="mb-2 text-sm font-medium">Permissions ({role.rolePermissions?.length ?? 0})</p>
-            {(role.rolePermissions ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">No permissions assigned.</p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {(role.rolePermissions ?? []).map((rp) => (
-                  <code key={rp.permission.id} className="rounded bg-muted px-2 py-1 text-xs">
-                    {rp.permission.module}.{rp.permission.key}
-                  </code>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : null}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function EditRoleDialog({
-  role, permissions, pending, onClose, onSubmit,
-}: {
-  role: Role | null;
-  permissions: Array<{ id: string; key: string; module: string }>;
-  pending: boolean;
-  onClose: () => void;
-  onSubmit: (input: { name?: string; description?: string; permissionKeys?: string[] }) => void;
-}) {
-  const [v, setV] = useState({ name: "", description: "", permissionKeys: [] as string[] });
-  const [syncedKey, setSyncedKey] = useState<string | null>(null);
-  const key = role?.id ?? null;
-  if (key !== syncedKey) {
-    setSyncedKey(key);
-    setV({
-      name: role?.name ?? "",
-      description: role?.description ?? "",
-      permissionKeys: role?.rolePermissions?.map((rp) => rp.permission.key) ?? [],
-    });
-  }
-
-  return (
-    <Dialog open={!!role} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Edit role</DialogTitle>
-          <DialogDescription>{role?.name}</DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <FormLabel>Role name</FormLabel>
-              <Input className="mt-1" value={v.name} onChange={(e) => setV((p) => ({ ...p, name: e.target.value }))} />
-            </div>
-            <div>
-              <FormLabel>Description</FormLabel>
-              <Textarea className="mt-1" value={v.description} onChange={(e) => setV((p) => ({ ...p, description: e.target.value }))} />
-            </div>
-          </div>
-          <div className="grid max-h-52 grid-cols-2 gap-1.5 overflow-y-auto rounded-md border border-border p-2">
-            {permissions.map((p) => (
-              <label key={p.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="size-4 accent-primary"
-                  checked={v.permissionKeys.includes(p.key)}
-                  onChange={(e) =>
-                    setV((prev) => ({
-                      ...prev,
-                      permissionKeys: e.target.checked
-                        ? [...prev.permissionKeys, p.key]
-                        : prev.permissionKeys.filter((k) => k !== p.key),
-                    }))
-                  }
-                />
-                <span className="truncate">{p.module}.{p.key}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button
-            disabled={pending || !v.name.trim()}
-            onClick={() =>
-              onSubmit({
-                name: v.name.trim(),
-                description: v.description.trim() || undefined,
-                permissionKeys: v.permissionKeys,
-              })
-            }
-          >
-            {pending ? "Saving…" : "Save changes"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

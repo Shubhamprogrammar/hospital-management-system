@@ -194,55 +194,39 @@ export async function processRefund(
   });
 }
 
-/**
- * Daily cash reconciliation records (FR 22.7-06).
- * Returns the CashReconciliation rows created via createReconciliation — the
- * shape consumed by the client's `ReconciliationSummary` type (an array).
- */
+/** Daily reconciliation report (FR 22.7-06). */
 export async function getReconciliation(date?: string) {
-  // "YYYY-MM-DD" parses as UTC midnight; keep the window in UTC to match the
-  // stored UTC dates/createdAt and avoid server-timezone day shifts.
-  const start = date ? new Date(date) : null;
-  const end = date ? new Date(date) : null;
-  if (start && end) {
-    start.setUTCHours(0, 0, 0, 0);
-    end.setUTCHours(23, 59, 59, 999);
-  }
+  const target = date ? new Date(date) : new Date();
+  const start = new Date(target);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(target);
+  end.setHours(23, 59, 59, 999);
 
-  return prisma.cashReconciliation.findMany({
-    where: start && end ? { date: { gte: start, lte: end } } : undefined,
-    orderBy: { date: "desc" },
+  const payments = await prisma.payment.findMany({
+    where: { createdAt: { gte: start, lte: end }, status: "SUCCESS" },
   });
+
+  const total = payments.reduce((acc, p) => acc + Number(p.amount), 0);
+  const byMode = payments.reduce<Record<string, number>>((acc, p) => {
+    acc[p.mode] = (acc[p.mode] ?? 0) + Number(p.amount);
+    return acc;
+  }, {});
+
+  return { date: target.toISOString().split("T")[0], total, count: payments.length, byMode, payments };
 }
 
-/**
- * Record a daily cash reconciliation. The expected amount is derived from the
- * day's successful CASH payments when the client doesn't supply one, so a
- * reconciliation compares counted cash against system-recorded cash.
- */
 export async function createReconciliation(data: {
   date: string;
+  expectedAmount: number;
   countedAmount: number;
-  expectedAmount?: number;
   staffId?: string;
 }) {
-  const start = new Date(data.date);
-  start.setUTCHours(0, 0, 0, 0);
-  const end = new Date(data.date);
-  end.setUTCHours(23, 59, 59, 999);
-
-  const sum = await prisma.payment.aggregate({
-    where: { createdAt: { gte: start, lte: end }, mode: "CASH", status: "SUCCESS" },
-    _sum: { amount: true },
-  });
-  const expectedAmount = data.expectedAmount ?? Number(sum._sum.amount ?? 0);
-
   return prisma.cashReconciliation.create({
     data: {
       date: new Date(data.date),
-      expectedAmount,
+      expectedAmount: data.expectedAmount,
       countedAmount: data.countedAmount,
-      variance: data.countedAmount - expectedAmount,
+      variance: data.countedAmount - data.expectedAmount,
       staffId: data.staffId,
     },
   });

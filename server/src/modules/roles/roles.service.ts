@@ -16,17 +16,11 @@ export async function createRole(data: { name: string; description?: string; per
     });
 
     if (data.permissionKeys?.length) {
-      // Drop nullish/empty entries so Prisma never emits `IN (NULL)`, but still
-      // reject the payload if any entry was invalid (matches the old behavior).
-      const permissionKeys = data.permissionKeys.filter((k): k is string => typeof k === "string" && k.length > 0);
-      if (permissionKeys.length !== data.permissionKeys.length) {
-        throw new AppError("One or more permission keys do not exist", 400, undefined, "ERR_INVALID_PERMISSION");
-      }
       const permissions = await tx.permission.findMany({
-        where: { key: { in: permissionKeys } },
+        where: { key: { in: data.permissionKeys } },
         select: { id: true },
       });
-      if (permissions.length !== permissionKeys.length) {
+      if (permissions.length !== data.permissionKeys.length) {
         throw new AppError("One or more permission keys do not exist", 400, undefined, "ERR_INVALID_PERMISSION");
       }
       await tx.rolePermission.createMany({
@@ -84,14 +78,10 @@ export async function updateRole(
     if (data.permissionKeys) {
       // Diff old vs new permissions
       await tx.rolePermission.deleteMany({ where: { roleId: id } });
-      // Drop nullish/empty entries so Prisma never emits `IN (NULL)`.
-      const permissionKeys = data.permissionKeys.filter((k): k is string => typeof k === "string" && k.length > 0);
-      const permissions = permissionKeys.length
-        ? await tx.permission.findMany({
-            where: { key: { in: permissionKeys } },
-            select: { id: true },
-          })
-        : [];
+      const permissions = await tx.permission.findMany({
+        where: { key: { in: data.permissionKeys } },
+        select: { id: true },
+      });
       if (permissions.length > 0) {
         await tx.rolePermission.createMany({
           data: permissions.map((p) => ({ roleId: id, permissionId: p.id })),

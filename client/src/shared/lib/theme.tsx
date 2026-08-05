@@ -78,12 +78,8 @@ function getSnapshot(): ThemeSnapshot {
   return snapshot;
 }
 
-// Cached — React requires getServerSnapshot to return a stable reference
-// (a fresh object each call triggers the "should be cached" hydration warning).
-const serverSnapshot: ThemeSnapshot = { theme: "system", resolved: "light" };
-
 function getServerSnapshot(): ThemeSnapshot {
-  return serverSnapshot;
+  return { theme: "system", resolved: "light" };
 }
 
 function setTheme(next: Theme) {

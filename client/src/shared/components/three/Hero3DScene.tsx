@@ -45,11 +45,11 @@ function DistortedCore() {
       <Float speed={1.4} rotationIntensity={0.4} floatIntensity={0.8}>
         <mesh scale={1.6}>
           <icosahedronGeometry args={[1, 4]} />
-          <MeshDistortMaterial color="#2563eb" emissive="#1e40af" emissiveIntensity={0.45} roughness={0.15} metalness={0.65} distort={0.35} speed={1.6} />
+          <MeshDistortMaterial color="#0ea5e9" emissive="#0369a1" emissiveIntensity={0.4} roughness={0.15} metalness={0.65} distort={0.35} speed={1.6} />
         </mesh>
         <mesh scale={2.6}>
           <icosahedronGeometry args={[1, 1]} />
-          <meshBasicMaterial color="#60a5fa" wireframe transparent opacity={0.12} />
+          <meshBasicMaterial color="#22d3ee" wireframe transparent opacity={0.12} />
         </mesh>
       </Float>
     </group>
@@ -60,7 +60,7 @@ function DistortedCore() {
 function Starfield() {
   return (
     <Points positions={STAR_POSITIONS} stride={3} frustumCulled>
-      <PointMaterial transparent color="#60a5fa" size={0.02} sizeAttenuation depthWrite={false} opacity={0.5} />
+      <PointMaterial transparent color="#22d3ee" size={0.02} sizeAttenuation depthWrite={false} opacity={0.5} />
     </Points>
   );
 }
@@ -114,7 +114,7 @@ export default function Hero3DScene() {
         >
           <ambientLight intensity={0.6} />
           <directionalLight position={[4, 6, 5]} intensity={1.4} />
-          <pointLight position={[-4, -2, 3]} intensity={0.8} color="#38bdf8" />
+          <pointLight position={[-4, -2, 3]} intensity={0.8} color="#22d3ee" />
           <Starfield />
           <DistortedCore />
         </Canvas>

@@ -6,10 +6,7 @@ export default defineConfig({
   migrations: {
     path: "prisma/migrations",
   },
-  // CLI operations (db push / migrate) run DDL, which transaction-pooling
-  // (port 6543, pgbouncer=true) cannot handle — use the direct session URL
-  // when available. Runtime queries keep using DATABASE_URL via the adapter.
   datasource: {
-    url: process.env.DIRECT_URL ?? process.env.DATABASE_URL!,
+    url: process.env.DATABASE_URL!,
   },
 });
