@@ -3,14 +3,6 @@ import type { AuthUser } from "./auth.types.js";
 import type { Role } from "../../config/auth.js";
 
 /**
- * Get the current session for a request.
- */
-export async function getSession(headers: Record<string, string>) {
-  const session = await auth.api.getSession({ headers });
-  return session;
-}
-
-/**
  * List all users (admin only).
  */
 export async function listUsers(

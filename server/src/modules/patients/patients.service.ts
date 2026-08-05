@@ -1,7 +1,8 @@
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../core/errors/AppError.js";
-import { generateUhid } from "../../core/utils/uhid.js";
+import { generateNextUhid } from "../../core/utils/uhid.js";
 import { cacheDel, cacheGet, cacheSet } from "../../config/redis.js";
+import { ensurePatientProfile } from "../../core/utils/patientProfile.js";
 
 /**
  * Register a new patient with UHID generation (FR 9.4-01).
@@ -54,14 +55,11 @@ export async function registerPatient(data: {
   }
 
   // Sequence per year: HMS-{YY}-{seq}
-  const yearPrefix = String(new Date().getFullYear() % 100).padStart(2, "0");
-  const count = await prisma.patient.count({
-    where: { uhid: { startsWith: `HMS-${yearPrefix}-` } },
-  });
+  const uhid = await generateNextUhid();
 
   return prisma.patient.create({
     data: {
-      uhid: generateUhid(count + 1),
+      uhid,
       name: data.name,
       dob,
       gender: data.gender,
@@ -182,6 +180,37 @@ export async function addPatientDocument(
 }
 
 /**
+ * Remove a patient document and its backing file-upload record (if any).
+ * Admins may remove any patient document; other roles can only remove
+ * documents they uploaded themselves.
+ */
+export async function removePatientDocument(
+  patientId: string,
+  docId: string,
+  actor: { id?: string; role?: string },
+) {
+  const doc = await prisma.patientDocument.findFirst({ where: { id: docId, patientId } });
+  if (!doc) throw new AppError("Document not found", 404, undefined, "NOT_FOUND");
+
+  const isAdmin = actor.role === "SUPER_ADMIN" || actor.role === "HOSPITAL_ADMIN";
+  if (!isAdmin && doc.uploadedBy !== actor.id) {
+    throw new AppError("You do not have access to this document", 403, undefined, "FORBIDDEN");
+  }
+
+  // Soft-delete the backing file-upload row if one exists (S3 tombstone).
+  const file = await prisma.fileUpload.findFirst({ where: { s3Key: doc.s3Key } });
+  if (file) {
+    await prisma.fileUpload.update({
+      where: { id: file.id },
+      data: { status: "FAILED" },
+    });
+  }
+
+  await prisma.patientDocument.delete({ where: { id: doc.id } });
+  return { id: doc.id, deleted: true };
+}
+
+/**
  * Merge two duplicate patient records (FR 9.4-05). Audit-logged, irreversible.
  */
 export async function mergePatients(data: {
@@ -252,9 +281,17 @@ export async function mergePatients(data: {
   });
 }
 
+interface PatientTimelineEntry {
+  type: string;
+  referenceId: string;
+  description: string;
+  occurredAt: string;
+}
+
 /**
- * Aggregated patient timeline (FR 9.4-07): appointments, visits, labs, prescriptions.
- * Reads from Mongo activity_logs + Postgres in a single call.
+ * Aggregated patient timeline (FR 9.4-07): appointments, visits, labs,
+ * prescriptions, admissions — flattened into a single reverse-chronological
+ * list matching the client's `PatientTimelineEntry[]` contract.
  */
 export async function getPatientTimeline(patientId: string) {
   const cacheKey = `patient:${patientId}:timeline`;
@@ -266,7 +303,7 @@ export async function getPatientTimeline(patientId: string) {
       where: { patientId },
       orderBy: { appointmentDate: "desc" },
       take: 50,
-      select: { id: true, appointmentDate: true, slotStartTime: true, status: true, mode: true, doctor: { select: { user: { select: { name: true } } } } },
+      select: { id: true, appointmentDate: true, status: true, mode: true, doctor: { select: { user: { select: { name: true } } } } },
     }),
     prisma.opdVisit.findMany({
       where: { patientId },
@@ -294,9 +331,41 @@ export async function getPatientTimeline(patientId: string) {
     }),
   ]);
 
-  const timeline = { appointments, visits, labs, prescriptions, admissions };
-  await cacheSet(cacheKey, JSON.stringify(timeline), 300); // 5 min TTL
-  return timeline;
+  const entries: PatientTimelineEntry[] = [
+    ...appointments.map((a) => ({
+      type: "APPOINTMENT",
+      referenceId: a.id,
+      description: `Appointment ${a.status.toLowerCase()}${a.doctor?.user?.name ? ` with ${a.doctor.user.name}` : ""}${a.mode === "TELECONSULT" ? " (teleconsult)" : ""}`,
+      occurredAt: a.appointmentDate.toISOString(),
+    })),
+    ...visits.map((v) => ({
+      type: "OPD_VISIT",
+      referenceId: v.id,
+      description: `OPD visit ${v.status.toLowerCase()}${v.department?.name ? ` - ${v.department.name}` : ""}${v.tokenNumber ? ` (token #${v.tokenNumber})` : ""}`,
+      occurredAt: v.checkedInAt.toISOString(),
+    })),
+    ...labs.map((l) => ({
+      type: "LAB_ORDER",
+      referenceId: l.id,
+      description: `Lab order ${l.status.toLowerCase()}${l.orderTests.length ? `: ${l.orderTests.map((t) => t.test?.name).filter(Boolean).join(", ")}` : ""}`,
+      occurredAt: l.createdAt.toISOString(),
+    })),
+    ...prescriptions.map((p) => ({
+      type: "PRESCRIPTION",
+      referenceId: p.id,
+      description: `Prescription ${p.status.toLowerCase()}`,
+      occurredAt: p.createdAt.toISOString(),
+    })),
+    ...admissions.map((a) => ({
+      type: "ADMISSION",
+      referenceId: a.id,
+      description: `Admission ${a.admissionNo} ${a.status.toLowerCase()}${a.dischargedAt ? " (discharged)" : ""}`,
+      occurredAt: (a.dischargedAt ?? a.admittedAt).toISOString(),
+    })),
+  ].sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
+
+  await cacheSet(cacheKey, JSON.stringify(entries), 300); // 5 min TTL
+  return entries;
 }
 
 export async function getPatientByUser(userId: string) {
@@ -304,6 +373,37 @@ export async function getPatientByUser(userId: string) {
     where: { userId, deletedAt: null },
   });
   if (!patient) throw new AppError("Patient profile not found", 404, undefined, "NOT_FOUND");
+  return patient;
+}
+
+/**
+ * Patient self-service resolver: returns the caller's Patient profile, lazily
+ * provisioning one when the account predates the signup hook or the hook failed
+ * (link an existing reception-registered record by email/phone, or auto-create
+ * from the account when every required field is present). Only throws when a
+ * profile genuinely cannot be produced.
+ */
+export async function resolvePatientByUser(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError("Patient profile not found", 404, undefined, "NOT_FOUND");
+
+  const patient = await ensurePatientProfile({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    dateOfBirth: user.dateOfBirth,
+    gender: user.gender,
+  });
+
+  if (!patient) {
+    throw new AppError(
+      "Patient profile not found. Complete your profile (date of birth and gender) before booking.",
+      404,
+      undefined,
+      "NOT_FOUND",
+    );
+  }
   return patient;
 }
 

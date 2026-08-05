@@ -568,6 +568,67 @@
               ]
             }
           }
+        },
+        {
+          "name": "Upload Avatar",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/avatar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{userId}}",
+                "avatar"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "avatar",
+                  "type": "file",
+                  "src": "/path/to/avatar.jpg"
+                }
+              ]
+            },
+            "description": "Upload a user avatar (multipart/form-data, field: avatar). NOTE: handler currently returns 501 — use POST /api/v1/uploads/presign with context AVATAR once S3 is configured."
+          }
+        },
+        {
+          "name": "Bulk Import Users",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/bulk-import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "bulk-import"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/users.csv"
+                }
+              ]
+            },
+            "description": "Bulk-import users from a CSV file (multipart/form-data, field: file). NOTE: handler currently returns 501 — async process-bulk-import job not wired yet."
+          }
         }
       ]
     },

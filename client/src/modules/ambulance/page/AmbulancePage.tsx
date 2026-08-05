@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
-import { AmbulanceIcon, PlusIcon } from "lucide-react";
+import { AmbulanceIcon, MapPinIcon, PlusIcon, RadioIcon } from "lucide-react";
 import { requestSchema, vehicleSchema, type RequestValues, type VehicleValues } from "@/modules/ambulance/constant/schemas";
 
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+import { Badge } from "@/shared/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/shared/components/ui/table";
@@ -29,15 +30,33 @@ import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import { useListQuery } from "@/shared/lib/hooks/useListQuery";
 import {
-  addVehicle, assignVehicle, listRequests, listVehicles, raiseRequest,
+  addVehicle, assignVehicle, listMyTrips, listRequests, listVehicles, raiseRequest,
+  trackTrip, updateTripStatus,
 } from "@/shared/services/ambulance.service";
-import type { AmbulanceRequest, AmbulanceVehicle } from "@/shared/types/domain";
+import { useSession } from "@/shared/lib/auth-client";
+import { ROLES, type Role } from "@/shared/types";
+import type { AmbulanceRequest, AmbulanceTrip, AmbulanceVehicle } from "@/shared/types/domain";
+
+const TRIP_FLOW: AmbulanceTrip["status"][] = [
+  "EN_ROUTE_TO_PICKUP",
+  "ARRIVED",
+  "TRANSPORTING",
+  "ARRIVED_HOSPITAL",
+  "COMPLETED",
+];
 
 export default function AmbulancePage() {
   const queryClient = useQueryClient();
+  const { data: session } = useSession();
+  const role = session?.user?.role as Role | undefined;
+  const isDriver = role === ROLES.AMBULANCE_DRIVER;
+  const canDispatch = role === ROLES.AMBULANCE_DISPATCHER || role === ROLES.HOSPITAL_ADMIN || role === ROLES.SUPER_ADMIN;
+
+  const [tracking, setTracking] = useState<AmbulanceTrip | null>(null);
 
   const vehicles = useListQuery<AmbulanceVehicle>({ queryKey: ["ambulance", "vehicles"], queryFn: (params) => listVehicles(params) });
   const requests = useListQuery<AmbulanceRequest>({ queryKey: ["ambulance", "requests"], queryFn: (params) => listRequests(params) });
+  const myTrips = useQuery({ queryKey: ["ambulance", "my-trips"], queryFn: () => listMyTrips(), enabled: isDriver || canDispatch });
 
   const [vehicleOpen, setVehicleOpen] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
@@ -77,112 +96,238 @@ export default function AmbulancePage() {
     mutationFn: ({ id, vehicleId }: { id: string; vehicleId: string }) => assignVehicle(id, { vehicleId }),
     onSuccess: () => {
       toast.success("Vehicle assigned");
-      queryClient.invalidateQueries({ queryKey: ["ambulance", "requests"] });
-      queryClient.invalidateQueries({ queryKey: ["ambulance", "vehicles"] });
+      queryClient.invalidateQueries({ queryKey: ["ambulance"] });
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+
+  const advanceTrip = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: AmbulanceTrip["status"] }) => updateTripStatus(id, { status }),
+    onSuccess: () => {
+      toast.success("Trip status updated");
+      queryClient.invalidateQueries({ queryKey: ["ambulance"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Live-poll the tracked trip so dispatchers see driver updates.
+  const tracked = useQuery({
+    queryKey: ["ambulance", "track", tracking?.id],
+    queryFn: () => trackTrip(tracking!.id),
+    enabled: !!tracking,
+    refetchInterval: 5000,
   });
 
   return (
     <div>
       <PageHeader
         title="Ambulance"
-        description="Fleet management and dispatch requests."
+        description={isDriver ? "Your active trips and live status updates." : "Fleet management, dispatch, and live trip tracking."}
         actions={
-          <>
-            <Button variant="outline" onClick={() => setRequestOpen(true)}><PlusIcon /> Raise request</Button>
-            <Button onClick={() => setVehicleOpen(true)}><PlusIcon /> Add vehicle</Button>
-          </>
+          !isDriver && canDispatch && (
+            <>
+              <Button variant="outline" onClick={() => setRequestOpen(true)}><PlusIcon /> Raise request</Button>
+              <Button onClick={() => setVehicleOpen(true)}><PlusIcon /> Add vehicle</Button>
+            </>
+          )
         }
       />
 
-      <Tabs defaultValue="requests">
+      <Tabs defaultValue={isDriver ? "trips" : "requests"}>
         <TabsList className="mb-4">
-          <TabsTrigger value="requests">Requests</TabsTrigger>
-          <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
+          <TabsTrigger value="trips">My Trips</TabsTrigger>
+          {!isDriver && <TabsTrigger value="requests">Requests</TabsTrigger>}
+          {!isDriver && <TabsTrigger value="vehicles">Vehicles</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="requests">
-          <div className="rounded-lg border border-border bg-card">
-            {requests.isLoading ? (
-              <div className="space-y-2 p-4">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-11 w-full" />)}</div>
-            ) : requests.isError ? (
-              <ErrorState error={requests.error} />
-            ) : requests.data?.items.length === 0 ? (
-              <EmptyState icon={AmbulanceIcon} title="No requests" description="Dispatch requests appear here." />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Pickup</TableHead>
-                    <TableHead>Drop</TableHead>
-                    <TableHead>Urgency</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {requests.data?.items.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="max-w-52 truncate">{r.pickupAddress}</TableCell>
-                      <TableCell className="max-w-52 truncate text-muted-foreground">{r.dropAddress ?? "—"}</TableCell>
-                      <TableCell><StatusBadge status={r.urgency} /></TableCell>
-                      <TableCell><StatusBadge status={r.status} /></TableCell>
-                      <TableCell className="text-right">
-                        {r.status === "PENDING" && (
-                          <Select onValueChange={(v) => assign.mutate({ id: r.id, vehicleId: v })}>
-                            <SelectTrigger className="ml-auto h-8 w-40"><SelectValue placeholder="Assign vehicle" /></SelectTrigger>
-                            <SelectContent>
-                              {vehicles.data?.items.filter((v) => v.status === "AVAILABLE").map((v) => (
-                                <SelectItem key={v.id} value={v.id}>{v.registrationNo}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-            <div className="p-4"><PaginationBar meta={requests.meta} onPageChange={requests.setPage} /></div>
-          </div>
+        <TabsContent value="trips">
+          {myTrips.isLoading ? (
+            <div className="space-y-2 p-4">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div>
+          ) : myTrips.isError ? (
+            <ErrorState error={myTrips.error} onRetry={() => myTrips.refetch()} />
+          ) : (myTrips.data ?? []).length === 0 ? (
+            <EmptyState
+              icon={RadioIcon}
+              title="No active trips"
+              description={isDriver ? "When a dispatcher assigns you a trip, it appears here." : "Assigned trips appear here for live tracking."}
+            />
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {myTrips.data?.map((trip) => {
+                const idx = TRIP_FLOW.indexOf(trip.status);
+                const next = idx >= 0 && idx < TRIP_FLOW.length - 1 ? TRIP_FLOW[idx + 1] : null;
+                return (
+                  <div key={trip.id} className="rounded-lg border border-border bg-card p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{trip.request?.patient?.name ?? "Pickup"}</p>
+                        <p className="font-mono text-xs text-muted-foreground">{trip.request?.patient?.uhid}</p>
+                      </div>
+                      <StatusBadge status={trip.status} />
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {trip.vehicle?.registrationNo} · {trip.request?.pickupAddress}
+                    </p>
+
+                    {/* Status stepper */}
+                    <div className="mt-4 flex items-center gap-1">
+                      {TRIP_FLOW.map((s, i) => (
+                        <div key={s} className="flex flex-1 flex-col items-center gap-1">
+                          <div
+                            className={`h-2 w-full rounded-full ${i <= idx ? "bg-primary" : "bg-muted"}`}
+                            title={s.replace(/_/g, " ")}
+                          />
+                          <span className={`text-[9px] ${i === idx ? "font-semibold text-primary" : "text-muted-foreground"}`}>
+                            {s.replace(/_/g, " ")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 flex items-center gap-2">
+                      {isDriver && next && (
+                        <Button size="sm" disabled={advanceTrip.isPending} onClick={() => advanceTrip.mutate({ id: trip.id, status: next })}>
+                          Mark {next.replace(/_/g, " ")}
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" onClick={() => setTracking(trip)}>
+                        <MapPinIcon /> Track live
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </TabsContent>
 
-        <TabsContent value="vehicles">
-          <div className="rounded-lg border border-border bg-card">
-            {vehicles.isLoading ? (
-              <div className="space-y-2 p-4">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-11 w-full" />)}</div>
-            ) : vehicles.isError ? (
-              <ErrorState error={vehicles.error} />
-            ) : vehicles.data?.items.length === 0 ? (
-              <EmptyState icon={AmbulanceIcon} title="No vehicles" description="Add an ambulance to your fleet." />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Registration</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Driver</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {vehicles.data?.items.map((v) => (
-                    <TableRow key={v.id}>
-                      <TableCell className="font-mono text-xs font-medium">{v.registrationNo}</TableCell>
-                      <TableCell>{v.type}</TableCell>
-                      <TableCell><StatusBadge status={v.status} /></TableCell>
-                      <TableCell>{v.driver?.name ?? "—"}</TableCell>
+        {!isDriver && (
+          <TabsContent value="requests">
+            <div className="rounded-lg border border-border bg-card">
+              {requests.isLoading ? (
+                <div className="space-y-2 p-4">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-11 w-full" />)}</div>
+              ) : requests.isError ? (
+                <ErrorState error={requests.error} />
+              ) : requests.data?.items.length === 0 ? (
+                <EmptyState icon={AmbulanceIcon} title="No requests" description="Dispatch requests appear here." />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Pickup</TableHead>
+                      <TableHead>Drop</TableHead>
+                      <TableHead>Urgency</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-            <div className="p-4"><PaginationBar meta={vehicles.meta} onPageChange={vehicles.setPage} /></div>
-          </div>
-        </TabsContent>
+                  </TableHeader>
+                  <TableBody>
+                    {requests.data?.items.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="max-w-52 truncate">{r.pickupAddress}</TableCell>
+                        <TableCell className="max-w-52 truncate text-muted-foreground">{r.dropAddress ?? "—"}</TableCell>
+                        <TableCell><StatusBadge status={r.urgency} /></TableCell>
+                        <TableCell><StatusBadge status={r.status} /></TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            {r.status === "PENDING" && canDispatch && (
+                              <Select onValueChange={(v) => assign.mutate({ id: r.id, vehicleId: v })}>
+                                <SelectTrigger className="ml-auto h-8 w-40"><SelectValue placeholder="Assign vehicle" /></SelectTrigger>
+                                <SelectContent>
+                                  {vehicles.data?.items.filter((v) => v.status === "AVAILABLE").map((v) => (
+                                    <SelectItem key={v.id} value={v.id}>{v.registrationNo}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                            {r.trip && (
+                              <Button size="sm" variant="outline" onClick={() => setTracking(r.trip as AmbulanceTrip)}>
+                                <MapPinIcon /> Track
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+              <div className="p-4"><PaginationBar meta={requests.meta} onPageChange={requests.setPage} /></div>
+            </div>
+          </TabsContent>
+        )}
+
+        {!isDriver && (
+          <TabsContent value="vehicles">
+            <div className="rounded-lg border border-border bg-card">
+              {vehicles.isLoading ? (
+                <div className="space-y-2 p-4">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-11 w-full" />)}</div>
+              ) : vehicles.isError ? (
+                <ErrorState error={vehicles.error} />
+              ) : vehicles.data?.items.length === 0 ? (
+                <EmptyState icon={AmbulanceIcon} title="No vehicles" description="Add an ambulance to your fleet." />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Registration</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Driver</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {vehicles.data?.items.map((v) => (
+                      <TableRow key={v.id}>
+                        <TableCell className="font-mono text-xs font-medium">{v.registrationNo}</TableCell>
+                        <TableCell>{v.type}</TableCell>
+                        <TableCell><StatusBadge status={v.status} /></TableCell>
+                        <TableCell>{v.driver?.name ?? "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+              <div className="p-4"><PaginationBar meta={vehicles.meta} onPageChange={vehicles.setPage} /></div>
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
+
+      {/* Live tracking dialog */}
+      <Dialog open={!!tracking} onOpenChange={(o) => !o && setTracking(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Live trip tracking</DialogTitle>
+            <DialogDescription>
+              {tracked.data?.request?.patient?.name ?? tracking?.request?.patient?.name ?? "Trip"} ·{" "}
+              {tracked.data?.vehicle?.registrationNo ?? tracking?.vehicle?.registrationNo ?? ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <StatusBadge status={tracked.data?.status ?? tracking?.status ?? "EN_ROUTE_TO_PICKUP"} />
+              {tracked.isFetching && <span className="text-xs text-muted-foreground">refreshing…</span>}
+            </div>
+            <div className="space-y-1.5">
+              {TRIP_FLOW.map((s, i) => {
+                const current = tracked.data?.status ?? tracking?.status;
+                const idx = TRIP_FLOW.indexOf(current as AmbulanceTrip["status"]);
+                return (
+                  <div key={s} className="flex items-center gap-3">
+                    <div className={`size-2.5 rounded-full ${i <= idx ? "bg-primary" : "bg-muted"}`} />
+                    <span className={`text-sm ${i === idx ? "font-medium" : "text-muted-foreground"}`}>{s.replace(/_/g, " ")}</span>
+                    {i === idx && <Badge variant="outline">current</Badge>}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Pickup: {tracked.data?.request?.pickupAddress ?? tracking?.request?.pickupAddress ?? "—"}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialogs */}
       <Dialog open={vehicleOpen} onOpenChange={setVehicleOpen}>

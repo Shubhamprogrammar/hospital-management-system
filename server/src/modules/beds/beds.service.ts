@@ -1,3 +1,4 @@
+import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../core/errors/AppError.js";
 import { cacheDel } from "../../config/redis.js";
@@ -35,13 +36,20 @@ export async function listBeds(params: {
   wardId?: string;
   status?: string;
   bedType?: string;
+  search?: string;
   page: number;
   limit: number;
 }) {
-  const where: Record<string, unknown> = { deletedAt: null };
+  const where: Prisma.BedWhereInput = { deletedAt: null };
   if (params.wardId) where.wardId = params.wardId;
-  if (params.status) where.status = params.status;
-  if (params.bedType) where.bedType = params.bedType;
+  if (params.status) where.status = params.status as any;
+  if (params.bedType) where.bedType = params.bedType as any;
+  if (params.search) {
+    where.OR = [
+      { bedNumber: { contains: params.search, mode: "insensitive" } },
+      { ward: { name: { contains: params.search, mode: "insensitive" } } },
+    ];
+  }
 
   const [total, beds] = await prisma.$transaction([
     prisma.bed.count({ where }),

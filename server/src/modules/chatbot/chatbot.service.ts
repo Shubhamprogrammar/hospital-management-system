@@ -1,7 +1,15 @@
 import { prisma } from "../../config/prisma.js";
+import { env } from "../../config/env.js";
 import { AppError } from "../../core/errors/AppError.js";
 import { ChatbotMessage } from "../../db/mongo/models/chatbotMessage.model.js";
 import { ChatbotFeedback } from "../../db/mongo/models/chatbotFeedback.model.js";
+
+/** Hugging Face Inference Providers — OpenAI-compatible chat completions router. */
+const HF_CHAT_URL = "https://router.huggingface.co/v1/chat/completions";
+
+const STAFF_SYSTEM_PROMPT = `You are the Hospital Assistant for a hospital management system, helping staff (doctors, nurses, receptionists, admins, pharmacists, lab technicians, etc.). Answer questions about OPD queues, appointments, billing, pharmacy, laboratory, inventory, wards, policies and SOPs, and general hospital operations. Be concise and practical. You are not a clinician: never give a diagnosis or treatment plan — advise consulting the appropriate clinician. If a message mentions emergency symptoms, tell them to call emergency services immediately.`;
+
+const PATIENT_SYSTEM_PROMPT = `You are the Hospital Assistant for a hospital's patient portal. Help patients with appointment booking guidance, lab reports, billing, visiting hours, and general hospital FAQs. Be warm and clear. You are NOT a doctor: do not give diagnoses or treatment advice — advise consulting a clinician. If symptoms sound like an emergency, tell the user to call emergency services (e.g. 108/911) immediately.`;
 
 /**
  * Red-flag symptom keywords — deterministic safety guardrail (FRD 27.5 BR-02).
@@ -115,10 +123,53 @@ export async function submitFeedback(
 }
 
 /**
- * Role-scoped assistant reply (FR 27.4). Deterministic fallback that
- * mirrors the LLM contract; swap with a streaming provider call.
+ * Role-scoped assistant reply (FR 27.4). Calls Hugging Face Inference
+ * Providers; on any failure (missing key, network, non-200, empty reply) it
+ * falls back to the deterministic canned replies so the feature never breaks.
  */
 async function generateReply(message: string, userRole: "PATIENT" | "STAFF"): Promise<string> {
+  if (!env.HUGGINGFACE_API_KEY) return fallbackReply(message, userRole);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const res = await fetch(HF_CHAT_URL, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${env.HUGGINGFACE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: env.HUGGINGFACE_CHAT_MODEL,
+        messages: [
+          { role: "system", content: userRole === "PATIENT" ? PATIENT_SYSTEM_PROMPT : STAFF_SYSTEM_PROMPT },
+          { role: "user", content: message },
+        ],
+        max_tokens: 300,
+        temperature: 0.6,
+        stream: false,
+      }),
+    });
+
+    if (!res.ok) throw new Error(`Hugging Face inference failed (${res.status})`);
+    const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const reply = data.choices?.[0]?.message?.content?.trim();
+    if (!reply) throw new Error("Empty assistant reply");
+    return reply;
+  } catch (error) {
+    console.error(
+      "Hospital Assistant LLM call failed — using fallback:",
+      error instanceof Error ? error.message : error,
+    );
+    return fallbackReply(message, userRole);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/** Deterministic canned replies — used when no Hugging Face key is configured or the call fails. */
+function fallbackReply(message: string, userRole: "PATIENT" | "STAFF"): string {
   const lower = message.toLowerCase();
 
   if (userRole === "PATIENT") {

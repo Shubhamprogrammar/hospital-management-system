@@ -23,7 +23,15 @@ export interface ListResult<T> {
 type Query = Record<string, unknown>;
 
 function buildUrl(path: string, query?: Query): string {
-  const url = new URL(`${env.API_URL}${path}`);
+  // env.API_URL is a relative same-origin path (e.g. "/api/v1"), so `new URL`
+  // needs a base. Resolve against the browser origin in the client; fall back
+  // to a localhost base in non-browser environments (tests, SSR).
+  const base = env.API_URL.startsWith("http")
+    ? env.API_URL
+    : typeof window !== "undefined"
+      ? window.location.origin
+      : "http://localhost";
+  const url = new URL(`${env.API_URL}${path}`, base);
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== null && value !== "") {

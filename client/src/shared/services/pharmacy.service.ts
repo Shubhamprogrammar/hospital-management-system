@@ -10,6 +10,21 @@ import type {
 } from "@/shared/types/domain";
 import type { PaginationParams } from "@/shared/types/api";
 
+export interface DrugCatalogEntry {
+  id: string;
+  name: string;
+  genericName: string | null;
+  unit: string | null;
+  isControlled: boolean;
+}
+
+export interface BatchSuggestion {
+  drugId: string;
+  quantity: number;
+  fefo: Array<{ batchId: string; batchNo: string; expiryDate: string; available: number; recommended: number }>;
+  fullyCovered: boolean;
+}
+
 // ---------- Pharmacy ----------
 
 export interface CreateDispenseInput {
@@ -18,10 +33,8 @@ export interface CreateDispenseInput {
 }
 
 export interface SubstitutionInput {
-  prescriptionItemId: string;
-  drugId: string;
-  batchId?: string;
-  quantityDispensed: number;
+  dispenseItemId: string;
+  substitutedFromDrugId: string;
   reason: string;
 }
 
@@ -31,6 +44,10 @@ export function getPharmacyQueue(query: { departmentId?: string } = {}) {
 
 export function createDispense(input: CreateDispenseInput) {
   return api.post<PharmacyDispense>("/pharmacy/dispenses", input);
+}
+
+export function listDispenses(params: PaginationParams = {}) {
+  return api.list<PharmacyDispense>("/pharmacy/dispenses", params);
 }
 
 export function getDispense(id: string) {
@@ -46,7 +63,11 @@ export function processReturn(input: { dispenseItemId: string; quantityReturned:
 }
 
 export function suggestBatches(query: { drugId: string; quantity?: number }) {
-  return api.get<InventoryBatch[]>("/pharmacy/batches/suggest", query);
+  return api.get<BatchSuggestion>("/pharmacy/batches/suggest", query);
+}
+
+export function listDrugs(params: PaginationParams & { search?: string } = {}) {
+  return api.list<DrugCatalogEntry>("/pharmacy/drugs", params);
 }
 
 // ---------- Inventory ----------

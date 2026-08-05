@@ -2,6 +2,18 @@ import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../core/errors/AppError.js";
 import { PatientChatMessage } from "../../db/mongo/models/patientChatMessage.model.js";
 import { emitToRoom } from "../../core/utils/socket.js";
+import { ensurePatientProfile } from "../../core/utils/patientProfile.js";
+
+/**
+ * Resolve the Patient profile backing a patient account (shared provisioning
+ * logic — same as the signup hook): linked userId → match+link by email/phone
+ * → auto-create when the account has all required fields → null.
+ */
+async function resolvePatientForUser(patientUserId: string) {
+  const user = await prisma.user.findUnique({ where: { id: patientUserId } });
+  if (!user) return null;
+  return ensurePatientProfile(user);
+}
 
 /**
  * Patient starts a conversation — relationship check (BR-01/FR 26.4-01):
@@ -9,21 +21,30 @@ import { emitToRoom } from "../../core/utils/socket.js";
  * general reception queue (staffId/reception).
  */
 export async function startConversation(data: {
-  patientId: string;
+  patientId?: string;
   patientUserId: string;
   doctorId?: string;
   departmentId?: string;
 }) {
-  const patient = await prisma.patient.findFirst({
-    where: { id: data.patientId, deletedAt: null },
-  });
-  if (!patient) throw new AppError("Patient not found", 404, undefined, "NOT_FOUND");
+  // Resolve the patient from the caller's linked profile when no explicit
+  // patientId is supplied (frontend sends only the actor's session).
+  const patient = data.patientId
+    ? await prisma.patient.findFirst({ where: { id: data.patientId, deletedAt: null } })
+    : await resolvePatientForUser(data.patientUserId);
+  if (!patient) {
+    throw new AppError(
+      "No patient profile is linked to this account. Register a patient profile (or contact reception to link one) before starting a chat.",
+      404,
+      undefined,
+      "ERR_PATIENT_PROFILE_REQUIRED",
+    );
+  }
 
   if (data.doctorId) {
     // Relationship-existence check (FR 26.4-01)
     const hasRelation = await prisma.appointment.findFirst({
       where: {
-        patientId: data.patientId,
+        patientId: patient.id,
         doctorId: data.doctorId,
       },
     });
@@ -39,7 +60,7 @@ export async function startConversation(data: {
 
   const existing = await prisma.patientChatConversation.findFirst({
     where: {
-      patientId: data.patientId,
+      patientId: patient.id,
       staffId: data.doctorId,
       status: { in: ["OPEN", "ANSWERED"] },
     },
@@ -48,7 +69,7 @@ export async function startConversation(data: {
 
   return prisma.patientChatConversation.create({
     data: {
-      patientId: data.patientId,
+      patientId: patient.id,
       staffId: data.doctorId,
       departmentId: data.departmentId,
     },
@@ -68,19 +89,16 @@ export async function listConversations(actor: { id: string; role: string }) {
     });
   }
 
-  // Staff inbox: assigned conversations or department queue
-  if (actor.role === "HOSPITAL_ADMIN" || actor.role === "SUPER_ADMIN") {
-    return prisma.patientChatConversation.findMany({
-      where: { status: { in: ["OPEN", "ANSWERED"] } },
-      orderBy: { lastMessageAt: "desc" },
-    });
-  }
+  // Staff inbox: open department/general queue. Patient-started threads have
+  // staffId = null (frontend only sends departmentId), so the clinical/front-
+  // desk roles that see the Patient Chat module must be able to pick up the
+  // unassigned OPEN/ANSWERED conversations and reply. Mirrors the client nav
+  // allow-list — other staff roles are deliberately excluded.
+  const staffChatRoles = ["DOCTOR", "NURSE", "RECEPTIONIST", "HOSPITAL_ADMIN", "SUPER_ADMIN"];
+  if (!staffChatRoles.includes(actor.role)) return [];
 
   return prisma.patientChatConversation.findMany({
-    where: {
-      staffId: actor.id,
-      status: { in: ["OPEN", "ANSWERED"] },
-    },
+    where: { status: { in: ["OPEN", "ANSWERED"] } },
     orderBy: { lastMessageAt: "desc" },
   });
 }

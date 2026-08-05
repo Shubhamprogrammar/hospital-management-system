@@ -31,7 +31,8 @@ export const sendMessageHandler = catchAsync(async (req: Request, res: Response)
   const result = await sendUserMessage(req.params.id, {
     userId: actor.id,
     userRole: actor.role === "PATIENT" ? "PATIENT" : "STAFF",
-    message: req.body.message,
+    // The web client sends `{ content }`; keep `message` as a legacy alias.
+    message: req.body.content ?? req.body.message,
   });
   sendSuccess(res, result);
 });
