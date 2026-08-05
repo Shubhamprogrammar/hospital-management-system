@@ -1,10 +1,18 @@
-/**
- * Fonts.
- *
- * System font stacks are used instead of `next/font/google` so production
- * builds never depend on an outbound fetch to Google Fonts (offline/CI builds
- * fail hard on that). The actual stacks are defined in `globals.css` under
- * `:root` (`--font-sans`, `--font-mono`, `--font-body`); `fontVariables` is
- * kept as a no-op so `layout.tsx` stays unchanged.
- */
-export const fontVariables = "";
+import { Geist, Geist_Mono, Inter } from "next/font/google";
+
+export const fontSans = Geist({
+  variable: "--font-sans",
+  subsets: ["latin"],
+});
+
+export const fontMono = Geist_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+});
+
+export const fontBody = Inter({
+  variable: "--font-body",
+  subsets: ["latin"],
+});
+
+export const fontVariables = `${fontSans.variable} ${fontMono.variable} ${fontBody.variable}`;
