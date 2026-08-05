@@ -24,10 +24,19 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const instance = io(env.SOCKET_URL, {
+    // Same-origin session cookies only work in dev (cookies are host-scoped,
+    // not port-scoped). In production the app and API live on different
+    // domains, so the session cookie never reaches the socket host — pass the
+    // session token as a bearer credential instead; the server's socket auth
+    // (server/src/core/utils/socket.ts) prefers it over the cookie.
+    const socketOptions: Parameters<typeof io>[1] = {
       withCredentials: true,
       autoConnect: true,
-    });
+    };
+    if (session.session?.token) {
+      socketOptions.auth = { token: session.session.token };
+    }
+    const instance = io(env.SOCKET_URL, socketOptions);
 
     setSocket(instance);
 
