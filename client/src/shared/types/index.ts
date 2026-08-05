@@ -20,6 +20,48 @@ export const ROLES = {
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
+/** System administrators — the only roles that implicitly see every module. */
+export const ADMIN_ROLES: readonly Role[] = [ROLES.SUPER_ADMIN, ROLES.HOSPITAL_ADMIN];
+
+/**
+ * True if `role` is a system admin (SUPER_ADMIN / HOSPITAL_ADMIN) that
+ * implicitly has access to every module (mirrors server `authorize()`).
+ */
+export function isAdminRole(role: Role | undefined): boolean {
+  return role === ROLES.SUPER_ADMIN || role === ROLES.HOSPITAL_ADMIN;
+}
+
+/**
+ * Genuine seniority check (same-track floor semantics): true if `role` meets or
+ * exceeds the hierarchy level of a single senior role (e.g. `hasRoleAtLeast(role, ROLES.DOCTOR)`
+ * = "doctor or anything more senior"). Only safe for single-role checks — see
+ * `hasRole` for set-membership checks (nav visibility, route guards).
+ */
+export function hasRoleAtLeast(role: Role | undefined, ...allowed: Role[]): boolean {
+  if (!role) return false;
+  const floor = Math.min(...allowed.map((r) => ROLE_HIERARCHY[r]));
+  return ROLE_HIERARCHY[role] >= floor;
+}
+
+/**
+ * Direct set-membership authorization check — mirrors the server `authorize()`.
+ * True if `role` is explicitly in `allowed`, or is an always-allowed admin
+ * (SUPER_ADMIN / HOSPITAL_ADMIN). No numeric hierarchy floors, so lateral roles
+ * sharing a level (LAB_TECHNICIAN/PHARMACIST/BILLING_STAFF) cannot reach each
+ * other's features (RBAC audit #1).
+ */
+export function hasRole(role: Role | undefined, ...allowed: Role[]): boolean {
+  if (!role) return false;
+  if (allowed.length === 0) return true;
+  if (isAdminRole(role)) return true;
+  return allowed.includes(role);
+}
+
+/**
+ * Numeric role hierarchy mirroring `server/src/config/auth.ts`.
+ * Only used by `hasRoleAtLeast` (genuine same-track seniority checks) —
+ * NOT for authorization, which must use set-membership `hasRole` (RBAC audit #1).
+ */
 export const ROLE_HIERARCHY: Record<Role, number> = {
   SUPER_ADMIN: 100,
   HOSPITAL_ADMIN: 80,
@@ -38,13 +80,6 @@ export const ROLE_HIERARCHY: Record<Role, number> = {
   WARD_BOY: 30,
   PATIENT: 10,
 };
-
-/** True if `role` meets the minimum level of any role in `allowed` (hierarchy-floor semantics, matches server authorize()). */
-export function hasRoleAtLeast(role: Role | undefined, ...allowed: Role[]): boolean {
-  if (!role) return false;
-  const floor = Math.min(...allowed.map((r) => ROLE_HIERARCHY[r]));
-  return ROLE_HIERARCHY[role] >= floor;
-}
 
 export interface User {
   id: string;

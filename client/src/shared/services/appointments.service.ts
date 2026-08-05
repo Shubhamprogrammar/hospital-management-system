@@ -13,7 +13,8 @@ import type { PaginationParams } from "@/shared/types/api";
 // ---------- Appointments ----------
 
 export interface BookAppointmentInput {
-  patientId: string;
+  /** Required for staff booking. Omitted for patient self-service — the server resolves the caller's own Patient record. */
+  patientId?: string;
   doctorId: string;
   departmentId: string;
   appointmentDate: string;
@@ -25,6 +26,14 @@ export interface BookAppointmentInput {
 
 export function bookAppointment(input: BookAppointmentInput) {
   return api.post<Appointment>("/appointments", input);
+}
+
+export function approveAppointment(id: string, input?: { decisionNote?: string }) {
+  return api.patch<Appointment>(`/appointments/${id}/approve`, input);
+}
+
+export function rejectAppointment(id: string, input: { decisionNote: string }) {
+  return api.patch<Appointment>(`/appointments/${id}/reject`, input);
 }
 
 export function listAppointments(
@@ -55,8 +64,12 @@ export function checkInAppointment(id: string) {
   return api.post<Appointment>(`/appointments/${id}/check-in`);
 }
 
-export function getAppointmentQueue(query: { departmentId?: string; doctorId?: string }) {
-  return api.get<OpdQueueItem[]>("/appointments/queue", query);
+export function completeAppointment(id: string) {
+  return api.patch<Appointment>(`/appointments/${id}/complete`);
+}
+
+export function getAppointmentQueue(query: { departmentId?: string; doctorId?: string; date?: string } = {}) {
+  return api.get<Appointment[]>("/appointments/queue", query);
 }
 
 // ---------- OPD ----------

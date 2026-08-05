@@ -48,6 +48,10 @@ export function addPatientDocument(id: string, input: { docType: "ID_PROOF" | "I
   return api.post<PatientDocument>(`/patients/${id}/documents`, input);
 }
 
+export function removePatientDocument(patientId: string, docId: string) {
+  return api.delete<{ id: string; deleted: boolean }>(`/patients/${patientId}/documents/${docId}`);
+}
+
 export function mergePatients(input: { survivingPatientId: string; mergedPatientId: string; reason: string }) {
   return api.post<{ merged: boolean }>("/patients/merge", input);
 }

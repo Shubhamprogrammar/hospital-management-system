@@ -6,16 +6,51 @@ import { AppError } from "../../core/errors/AppError.js";
 import { writeAuditLog } from "../../core/utils/audit.js";
 import {
   createConversation,
+  renameConversation,
+  addConversationMembers,
+  leaveConversation,
+  deleteConversation,
   listUserConversations,
   getMessages,
   sendMessage,
   editMessage,
   markConversationRead,
+  listChatUsers,
+  findConversationBySet,
+  listConversationStatusForUsers,
 } from "./chat.service.js";
+
+export const listChatUsersHandler = catchAsync(async (req: Request, res: Response) => {
+  const users = await listChatUsers({
+    search: req.query.search as string | undefined,
+    role: req.query.role as string | undefined,
+  });
+  sendSuccess(res, users);
+});
+
+export const lookupConversationHandler = catchAsync(async (req: Request, res: Response) => {
+  const actor = (req as any).user;
+  const withIds =
+    (req.query.participants as string | undefined)
+      ?.split(",")
+      .map((id) => id.trim())
+      .filter(Boolean) ?? [];
+  // Exact member set = the actor + the selected users; mirrors createConversation reuse.
+  const conversation = await findConversationBySet([actor.id, ...withIds]);
+  sendSuccess(res, { conversation, reused: !!conversation });
+});
+
+export const conversationStatusHandler = catchAsync(async (req: Request, res: Response) => {
+  const actor = (req as any).user;
+  const ids =
+    (req.query.ids as string | undefined)?.split(",").map((id) => id.trim()).filter(Boolean) ?? [];
+  const statuses = await listConversationStatusForUsers(actor.id, ids);
+  sendSuccess(res, statuses);
+});
 
 export const createConversationHandler = catchAsync(async (req: Request, res: Response) => {
   const actor = (req as any).user;
-  const conversation = await createConversation({ ...req.body, createdBy: actor?.id });
+  const { conversation, reused } = await createConversation({ ...req.body, createdBy: actor?.id });
   writeAuditLog(
     {
       actorId: actor?.id,
@@ -24,10 +59,84 @@ export const createConversationHandler = catchAsync(async (req: Request, res: Re
       module: "chat",
       entityType: "ChatConversation",
       entityId: conversation.id,
+      after: { reused },
     },
     req,
   );
-  sendSuccess(res, conversation, 201);
+  // 201 = brand-new thread, 200 = resumed an existing one (same member set).
+  sendSuccess(res, { conversation, reused }, reused ? 200 : 201);
+});
+
+export const renameConversationHandler = catchAsync(async (req: Request, res: Response) => {
+  const actor = (req as any).user;
+  const conversation = await renameConversation(req.params.id, actor.id, req.body.title ?? "");
+  writeAuditLog(
+    {
+      actorId: actor?.id,
+      actorRole: actor?.role,
+      action: "CONVERSATION_RENAMED",
+      module: "chat",
+      entityType: "ChatConversation",
+      entityId: conversation.id,
+      after: { title: conversation.title },
+    },
+    req,
+  );
+  sendSuccess(res, conversation);
+});
+
+export const addMembersHandler = catchAsync(async (req: Request, res: Response) => {
+  const actor = (req as any).user;
+  const conversation = await addConversationMembers(req.params.id, actor.id, req.body.userIds ?? []);
+  writeAuditLog(
+    {
+      actorId: actor?.id,
+      actorRole: actor?.role,
+      action: "CONVERSATION_MEMBERS_ADDED",
+      module: "chat",
+      entityType: "ChatConversation",
+      entityId: conversation.id,
+      after: { memberCount: conversation.participants.length },
+    },
+    req,
+  );
+  sendSuccess(res, conversation);
+});
+
+export const leaveConversationHandler = catchAsync(async (req: Request, res: Response) => {
+  const actor = (req as any).user;
+  const result = await leaveConversation(req.params.id, actor.id);
+  writeAuditLog(
+    {
+      actorId: actor?.id,
+      actorRole: actor?.role,
+      action: "CONVERSATION_LEFT",
+      module: "chat",
+      entityType: "ChatConversation",
+      entityId: req.params.id,
+      after: result,
+    },
+    req,
+  );
+  sendSuccess(res, result);
+});
+
+export const deleteConversationHandler = catchAsync(async (req: Request, res: Response) => {
+  const actor = (req as any).user;
+  const result = await deleteConversation(req.params.id, actor.id);
+  writeAuditLog(
+    {
+      actorId: actor?.id,
+      actorRole: actor?.role,
+      action: "CONVERSATION_DELETED",
+      module: "chat",
+      entityType: "ChatConversation",
+      entityId: req.params.id,
+      after: result,
+    },
+    req,
+  );
+  sendSuccess(res, result);
 });
 
 export const listConversationsHandler = catchAsync(async (req: Request, res: Response) => {

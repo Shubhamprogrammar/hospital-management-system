@@ -39,7 +39,7 @@ export function RegisterPage() {
             <span className="text-lg font-semibold tracking-tight">MediCore<span className="text-gradient-brand">HMS</span></span>
           </div>
 
-          <Card className="border-border/70 shadow-card-hover">
+          <Card className="border-border/70 shadow-card-hover -py-1">
             <CardHeader>
               <CardTitle className="text-lg">Create your account</CardTitle>
               <CardDescription>

@@ -309,6 +309,15 @@ export async function issueCreditNote(
   });
 }
 
+export async function listInsurancePolicies(patientId?: string) {
+  return prisma.insurancePolicy.findMany({
+    where: patientId ? { patientId } : {},
+    include: { patient: { select: { id: true, name: true, uhid: true } } },
+    orderBy: { validTill: "desc" },
+    take: 100,
+  });
+}
+
 export async function createInsurancePolicy(data: {
   patientId: string;
   providerName: string;
