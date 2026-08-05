@@ -917,7 +917,6 @@ export interface AuditLog {
   id: string;
   actorId: string | null;
   actorEmail: string | null;
-  actorRole: string | null;
   action: string;
   entityType: string;
   entityId: string | null;
