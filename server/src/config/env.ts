@@ -20,6 +20,12 @@ const envSchema = z.object({
   // e.g. "http://localhost:3000,http://192.168.1.36:3000"
   CLIENT_URL: z.string().default("http://localhost:3000"),
 
+  // Cloudinary — optional. Without all three the uploads module falls back to
+  // its local stub (no real bytes are stored).
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
+
   // Hugging Face Inference Providers (Hospital Assistant chatbot).
   // Optional — without a key the assistant falls back to canned replies.
   HUGGINGFACE_API_KEY: z.string().optional(),

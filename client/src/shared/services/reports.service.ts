@@ -6,7 +6,12 @@ export function listReportTemplates(params: PaginationParams & { module?: string
   return api.list<ReportTemplate>("/reports/templates", params);
 }
 
-export function generateReport(input: { templateId: string; params?: Record<string, unknown> }) {
+export function generateReport(input: {
+  templateId: string;
+  dateFrom: string;
+  dateTo: string;
+  params?: Record<string, unknown>;
+}) {
   return api.post<ReportJob>("/reports/generate", input);
 }
 

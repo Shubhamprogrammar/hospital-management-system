@@ -40,14 +40,20 @@ export default function ReportsPage() {
   const [running, setRunning] = useState<string | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [jobs, setJobs] = useState<ReportJob[]>([]);
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  });
+  const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
 
   const templates = useQuery({ queryKey: ["reports", "templates"], queryFn: () => listReportTemplates({ limit: 50 }) });
   const schedules = useQuery({ queryKey: ["reports", "schedules"], queryFn: () => listReportSchedules(), enabled: isAdmin });
 
   const generate = useMutation({
-    mutationFn: (templateId: string) => generateReport({ templateId }),
+    mutationFn: (templateId: string) => generateReport({ templateId, dateFrom, dateTo }),
     onSuccess: (job) => {
-      toast.success(`Report queued (${job.status})`);
+      toast.success(job.status === "COMPLETED" ? "Report generated" : `Report queued (${job.status})`);
       setRunning(null);
       setJobs((prev) => [job, ...prev]);
       queryClient.invalidateQueries({ queryKey: ["reports"] });
@@ -85,6 +91,19 @@ export default function ReportsPage() {
         </TabsList>
 
         <TabsContent value="generate">
+          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-4">
+            <div>
+              <Label className="text-xs">From</Label>
+              <Input type="date" className="mt-1" value={dateFrom} max={dateTo} onChange={(e) => setDateFrom(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">To</Label>
+              <Input type="date" className="mt-1" value={dateTo} min={dateFrom} onChange={(e) => setDateTo(e.target.value)} />
+            </div>
+            <div className="ml-auto hidden text-sm text-muted-foreground sm:block">
+              Applies to date-based reports
+            </div>
+          </div>
           <div className="rounded-lg border border-border bg-card">
             {templates.isLoading ? (
               <div className="space-y-2 p-4">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-11 w-full" />)}</div>

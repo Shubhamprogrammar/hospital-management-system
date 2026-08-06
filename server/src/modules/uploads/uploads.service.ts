@@ -86,8 +86,10 @@ export async function getDownloadUrl(fileId: string, userId: string) {
     );
   }
 
-  // Ownership/authorization: only uploader by default
-  if (file.uploadedBy !== userId) {
+  // System/hospital admins manage the whole patient record; everyone else can
+  // only download files they uploaded themselves.
+  const isAdmin = actorRole === "SUPER_ADMIN" || actorRole === "HOSPITAL_ADMIN";
+  if (!isAdmin && file.uploadedBy !== userId) {
     throw new AppError("You do not have access to this file", 403, undefined, "FORBIDDEN");
   }
 
