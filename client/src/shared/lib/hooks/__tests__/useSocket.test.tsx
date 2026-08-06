@@ -141,4 +141,27 @@ describe("useSocketEvent", () => {
 
     expect(fakeSocket.off).toHaveBeenCalledWith("notifications:new", expect.any(Function));
   });
+
+  it("invokes the latest handler closure when the handler changes (no stale state)", async () => {
+    useSessionMock.mockReturnValue({ data: { user: sessionUser } });
+    ioMock.mockReturnValue(fakeSocket);
+    const first = vi.fn();
+    const latest = vi.fn();
+
+    const { rerender } = renderHook(({ handler }) => useSocketEvent("chat:message:new", handler), {
+      wrapper,
+      initialProps: { handler: first },
+    });
+
+    await waitFor(() =>
+      expect(fakeSocket.on).toHaveBeenCalledWith("chat:message:new", expect.any(Function)),
+    );
+
+    rerender({ handler: latest });
+
+    act(() => fakeSocket._emit("chat:message:new", { conversationId: "c1" }));
+
+    expect(latest).toHaveBeenCalledWith({ conversationId: "c1" });
+    expect(first).not.toHaveBeenCalled();
+  });
 });

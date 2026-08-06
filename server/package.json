@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc && tsc-esm-fix --tsconfig tsconfig.json",
+    "build": "tsc && tsc-esm-fix --tsconfig tsconfig.json --dirnameVar=false --filenameVar=false",
     "start": "node dist/server.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

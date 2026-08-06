@@ -133,7 +133,7 @@ export default function PatientChatPage() {
   const items = (messages.data?.items as unknown as PatientChatMessageView[] | undefined) ?? [];
 
   return (
-    <div className="flex h-[calc(100dvh-8rem)] flex-col">
+    <div className="flex h-[calc(100dvh-5.5rem)] flex-col md:h-[calc(100dvh-6.5rem)]">
       <PageHeader
         title="Patient Chat"
         description={isPatient ? "Chat with the hospital team about your care." : "Patient conversations inbox — reply, escalate, or close."}
@@ -146,9 +146,9 @@ export default function PatientChatPage() {
         }
       />
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[280px_1fr]">
+      <div className="grid min-h-0 flex-1 grid-rows-1 gap-4 lg:grid-cols-[280px_1fr]">
         {/* Conversation list */}
-        <div className="rounded-lg border border-border bg-card">
+        <div className="min-h-0 rounded-lg border border-border bg-card">
           <ScrollArea className="h-full">
             {conversations.isLoading ? (
               <div className="space-y-2 p-3">
@@ -181,7 +181,7 @@ export default function PatientChatPage() {
         </div>
 
         {/* Messages */}
-        <div className="flex min-w-0 flex-col rounded-lg border border-border bg-card">
+        <div className="flex min-h-0 min-w-0 flex-col rounded-lg border border-border bg-card">
           {!activeId ? (
             <EmptyState icon={MessageSquareHeartIcon} title="Select a conversation" description="Choose a conversation on the left to start reading." />
           ) : messages.isLoading ? (
