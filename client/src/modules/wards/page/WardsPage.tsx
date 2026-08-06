@@ -164,7 +164,6 @@ export default function WardsPage() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div><p className="text-muted-foreground">Type</p><p className="font-medium">{wardDetail.data.wardType.replace(/_/g, " ")}</p></div>
               <div><p className="text-muted-foreground">Floor</p><p className="font-medium">{wardDetail.data.floor}</p></div>
-              <div><p className="text-muted-foreground">Department</p><p className="font-medium">{wardDetail.data.department?.name ?? "—"}</p></div>
               <div><p className="text-muted-foreground">Status</p><Badge variant={wardDetail.data.isActive ? "success" : "destructive"}>{wardDetail.data.isActive ? "Active" : "Inactive"}</Badge></div>
               <div className="col-span-2">
                 <p className="mb-2 text-muted-foreground">Beds ({wardDetail.data.beds?.length ?? 0})</p>
