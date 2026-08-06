@@ -19,6 +19,50 @@ export async function listTestCatalog() {
   return tests;
 }
 
+export async function createLabTest(data: {
+  name: string;
+  code: string;
+  category?: string;
+  price?: number;
+  sampleType?: string;
+  turnaroundHours?: number;
+  parameters?: Array<{
+    name: string;
+    unit?: string;
+    referenceRangeMin?: number;
+    referenceRangeMax?: number;
+    criticalLow?: number;
+    criticalHigh?: number;
+  }>;
+}) {
+  if (!data.name?.trim() || !data.code?.trim()) {
+    throw new AppError("Name and code are required", 400, undefined, "VALIDATION_ERROR");
+  }
+
+  const existing = await prisma.labTest.findUnique({ where: { code: data.code } });
+  if (existing) {
+    throw new AppError("A test with this code already exists", 409, undefined, "CONFLICT");
+  }
+
+  const test = await prisma.labTest.create({
+    data: {
+      name: data.name.trim(),
+      code: data.code.trim(),
+      category: data.category,
+      price: data.price,
+      sampleType: data.sampleType,
+      turnaroundHours: data.turnaroundHours,
+      parameters: data.parameters?.length
+        ? { create: data.parameters.map((p) => ({ ...p, name: p.name.trim() })) }
+        : undefined,
+    },
+    include: { parameters: true },
+  });
+
+  await cacheDel(CATALOG_CACHE_KEY);
+  return test;
+}
+
 export async function createLabOrder(data: {
   patientId: string;
   doctorId: string;

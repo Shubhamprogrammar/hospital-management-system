@@ -145,6 +145,27 @@ export function listLabTests(params: PaginationParams & { search?: string; categ
   return api.list<LabTest>("/lab/tests", params);
 }
 
+export interface CreateLabTestInput {
+  name: string;
+  code: string;
+  category?: string;
+  price?: number;
+  sampleType?: string;
+  turnaroundHours?: number;
+  parameters?: Array<{
+    name: string;
+    unit?: string;
+    referenceRangeMin?: number;
+    referenceRangeMax?: number;
+    criticalLow?: number;
+    criticalHigh?: number;
+  }>;
+}
+
+export function createLabTest(input: CreateLabTestInput) {
+  return api.post<LabTest>("/lab/tests", input);
+}
+
 export function createLabOrder(input: CreateLabOrderInput) {
   return api.post<LabOrder>("/lab/orders", input);
 }

@@ -6,6 +6,7 @@ import { writeAuditLog } from "../../core/utils/audit.js";
 import { resolveDoctorId } from "../../core/utils/doctorRef.js";
 import {
   listTestCatalog,
+  createLabTest,
   createLabOrder,
   listLabOrders,
   collectSample,
@@ -17,6 +18,24 @@ import {
 export const listCatalogHandler = catchAsync(async (_req: Request, res: Response) => {
   const tests = await listTestCatalog();
   sendSuccess(res, tests);
+});
+
+export const createLabTestHandler = catchAsync(async (req: Request, res: Response) => {
+  const actor = (req as any).user;
+  const test = await createLabTest(req.body);
+  writeAuditLog(
+    {
+      actorId: actor?.id,
+      actorRole: actor?.role,
+      action: "LAB_TEST_CREATED",
+      module: "laboratory",
+      entityType: "LabTest",
+      entityId: test.id,
+      after: { name: test.name, code: test.code },
+    },
+    req,
+  );
+  sendSuccess(res, test, 201);
 });
 
 export const createLabOrderHandler = catchAsync(async (req: Request, res: Response) => {
