@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc && tsc-esm-fix --tsconfig tsconfig.json --dirnameVar=false --filenameVar=false",
+    "build": "node scripts/neutralize-prisma-dirname.mjs && tsc && tsc-esm-fix --tsconfig tsconfig.json",
     "start": "node dist/server.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -23,6 +23,7 @@
     "@types/morgan": "^1.9.10",
     "bcrypt": "^6.0.0",
     "better-auth": "^1.6.25",
+    "cloudinary": "^2.10.0",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",

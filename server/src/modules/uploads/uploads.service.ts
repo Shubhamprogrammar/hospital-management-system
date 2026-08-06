@@ -72,7 +72,7 @@ export async function confirmUpload(fileId: string) {
   return updated;
 }
 
-export async function getDownloadUrl(fileId: string, userId: string) {
+export async function getDownloadUrl(fileId: string, userId: string, actorRole?: string) {
   const file = await prisma.fileUpload.findUnique({ where: { id: fileId } });
   if (!file) throw new AppError("Upload not found", 404, undefined, "NOT_FOUND");
 
