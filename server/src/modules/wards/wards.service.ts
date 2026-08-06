@@ -115,19 +115,36 @@ export async function getWardCensus(id: string) {
   const cached = await cacheGet(cacheKey);
   if (cached) return JSON.parse(cached);
 
+  const ward = await prisma.ward.findFirst({ where: { id, deletedAt: null } });
+  if (!ward) throw new AppError("Ward not found", 404, undefined, "NOT_FOUND");
+
   const beds = await prisma.bed.findMany({
     where: { wardId: id, deletedAt: null },
     select: { status: true },
   });
 
+  const admissions = await prisma.ipdAdmission.findMany({
+    where: {
+      wardId: id,
+      status: { in: ["ADMITTED", "IN_TREATMENT", "DISCHARGE_PLANNED"] },
+    },
+    select: {
+      id: true,
+      admissionNo: true,
+      admissionType: true,
+      admittedAt: true,
+      patient: { select: { id: true, name: true, uhid: true, phone: true } },
+      bed: { select: { id: true, bedNumber: true, bedType: true } },
+    },
+    orderBy: { admittedAt: "desc" },
+  });
+
   const result = {
-    wardId: id,
-    occupied: beds.filter((b) => b.status === "OCCUPIED").length,
-    available: beds.filter((b) => b.status === "AVAILABLE").length,
-    maintenance: beds.filter((b) => b.status === "MAINTENANCE").length,
-    cleaning: beds.filter((b) => b.status === "CLEANING").length,
-    reserved: beds.filter((b) => b.status === "RESERVED").length,
-    total: beds.length,
+    ward,
+    totalBeds: beds.length,
+    occupiedBeds: beds.filter((b) => b.status === "OCCUPIED").length,
+    availableBeds: beds.filter((b) => b.status === "AVAILABLE").length,
+    admissions,
   };
   await cacheSet(cacheKey, JSON.stringify(result), 60);
   return result;
