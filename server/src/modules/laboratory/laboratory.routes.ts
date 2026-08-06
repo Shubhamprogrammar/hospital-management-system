@@ -3,6 +3,7 @@ import { authMiddleware } from "../../core/middleware/auth.middleware.js";
 import { authorize } from "../../core/middleware/authorize.js";
 import {
   listCatalogHandler,
+  createLabTestHandler,
   createLabOrderHandler,
   listLabOrdersHandler,
   collectSampleHandler,
@@ -16,6 +17,11 @@ const laboratoryRoutes = Router();
 laboratoryRoutes.use(authMiddleware);
 
 laboratoryRoutes.get("/tests", listCatalogHandler);
+laboratoryRoutes.post(
+  "/tests",
+  authorize("SUPER_ADMIN", "HOSPITAL_ADMIN", "PATHOLOGIST"),
+  createLabTestHandler,
+);
 laboratoryRoutes.post("/orders", authorize("SUPER_ADMIN", "DOCTOR"), createLabOrderHandler);
 laboratoryRoutes.get("/orders", listLabOrdersHandler);
 laboratoryRoutes.patch(

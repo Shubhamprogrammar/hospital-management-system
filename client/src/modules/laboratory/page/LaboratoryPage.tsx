@@ -5,12 +5,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
-import { FlaskConicalIcon, PlusIcon } from "lucide-react";
+import { FlaskConicalIcon, PlusIcon, SettingsIcon } from "lucide-react";
 import { orderSchema, type OrderValues } from "@/modules/laboratory/constant/schemas";
 
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -28,15 +29,26 @@ import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import { useListQuery } from "@/shared/lib/hooks/useListQuery";
 import {
-  collectSample, createLabOrder, enterResults, listLabOrders, listLabTests, releaseReport, verifyLabResults,
+  collectSample, createLabOrder, createLabTest, enterResults, listLabOrders, listLabTests, releaseReport, verifyLabResults,
+  type CreateLabTestInput,
 } from "@/shared/services/clinical.service";
 import { searchPatients } from "@/shared/services/patients.service";
 import { listDoctors } from "@/shared/services/org.service";
-import type { LabOrder, LabOrderStatus, LabTestParameter } from "@/shared/types/domain";
+import { useSession } from "@/shared/lib/auth-client";
+import { ROLES, hasRole, type Role } from "@/shared/types";
+import type { LabOrder, LabOrderStatus, LabTest, LabTestParameter } from "@/shared/types/domain";
 
 export default function LaboratoryPage() {
+  const { data: session } = useSession();
+  const role = session?.user?.role as Role | undefined;
+  // Mirrors server authorize() lists: POST /lab/orders is SUPER_ADMIN/DOCTOR
+  // only, POST /lab/tests is SUPER_ADMIN/HOSPITAL_ADMIN/PATHOLOGIST only.
+  const canCreateOrder = hasRole(role, ROLES.DOCTOR);
+  const canManageTests = hasRole(role, ROLES.PATHOLOGIST);
+
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  const [manageTestsOpen, setManageTestsOpen] = useState(false);
   const [resultsFor, setResultsFor] = useState<LabOrder | null>(null);
   const [statusFilter, setStatusFilter] = useState<LabOrderStatus | "">("");
 
@@ -94,7 +106,16 @@ export default function LaboratoryPage() {
       <PageHeader
         title="Laboratory"
         description="Lab orders, sample collection, verification, and report release."
-        actions={<Button onClick={() => setCreateOpen(true)}><PlusIcon /> Create order</Button>}
+        actions={
+          <>
+            {canManageTests && (
+              <Button variant="outline" onClick={() => setManageTestsOpen(true)}><SettingsIcon /> Manage tests</Button>
+            )}
+            {canCreateOrder && (
+              <Button onClick={() => setCreateOpen(true)}><PlusIcon /> Create order</Button>
+            )}
+          </>
+        }
       />
 
       <div className="mb-4">
@@ -218,6 +239,12 @@ export default function LaboratoryPage() {
         </DialogContent>
       </Dialog>
 
+      <ManageTestsDialog
+        open={manageTestsOpen}
+        onOpenChange={setManageTestsOpen}
+        testList={tests.data?.items ?? []}
+      />
+
       {/* Enter results dialog */}
       <EnterResultsDialog
         order={resultsFor}
@@ -239,6 +266,172 @@ function parametersOf(order: LabOrder | null): Array<LabTestParameter & { testNa
     }
   }
   return out;
+}
+
+type ParamLine = {
+  name: string;
+  unit: string;
+  referenceRangeMin: string;
+  referenceRangeMax: string;
+  criticalLow: string;
+  criticalHigh: string;
+};
+
+const emptyParamLine: ParamLine = {
+  name: "", unit: "", referenceRangeMin: "", referenceRangeMax: "", criticalLow: "", criticalHigh: "",
+};
+
+function ManageTestsDialog({
+  open, onOpenChange, testList,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  testList: LabTest[];
+}) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [category, setCategory] = useState("");
+  const [price, setPrice] = useState("");
+  const [sampleType, setSampleType] = useState("");
+  const [params, setParams] = useState<ParamLine[]>([emptyParamLine]);
+
+  const reset = () => {
+    setName(""); setCode(""); setCategory(""); setPrice(""); setSampleType("");
+    setParams([emptyParamLine]);
+  };
+
+  const create = useMutation({
+    mutationFn: (input: CreateLabTestInput) => createLabTest(input),
+    onSuccess: () => {
+      toast.success("Test added to catalog");
+      reset();
+      queryClient.invalidateQueries({ queryKey: ["lab", "tests"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const ready = name.trim() !== "" && code.trim() !== "";
+
+  const submit = () => {
+    const parameters = params
+      .filter((p) => p.name.trim() !== "")
+      .map((p) => ({
+        name: p.name.trim(),
+        unit: p.unit.trim() || undefined,
+        referenceRangeMin: p.referenceRangeMin ? Number(p.referenceRangeMin) : undefined,
+        referenceRangeMax: p.referenceRangeMax ? Number(p.referenceRangeMax) : undefined,
+        criticalLow: p.criticalLow ? Number(p.criticalLow) : undefined,
+        criticalHigh: p.criticalHigh ? Number(p.criticalHigh) : undefined,
+      }));
+    create.mutate({
+      name: name.trim(),
+      code: code.trim(),
+      category: category.trim() || undefined,
+      price: price ? Number(price) : undefined,
+      sampleType: sampleType.trim() || undefined,
+      parameters: parameters.length ? parameters : undefined,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Manage lab tests</DialogTitle>
+          <DialogDescription>The test catalog used when creating lab orders.</DialogDescription>
+        </DialogHeader>
+
+        <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border p-2">
+          {testList.length === 0 ? (
+            <p className="p-2 text-sm text-muted-foreground">No tests in the catalog yet.</p>
+          ) : (
+            testList.map((t) => (
+              <div key={t.id} className="flex items-center justify-between rounded px-2 py-1.5 text-sm">
+                <div>
+                  <span className="font-medium">{t.name}</span>
+                  <span className="ml-2 font-mono text-xs text-muted-foreground">{t.code}</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {t.category ?? "—"} · {t.parameters?.length ?? 0} param{t.parameters?.length === 1 ? "" : "s"}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="flex flex-col gap-4 border-t border-border pt-4">
+          <p className="text-sm font-medium">Add test</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <Label className="text-xs">Name</Label>
+              <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} placeholder="Thyroid Profile" />
+            </div>
+            <div>
+              <Label className="text-xs">Code</Label>
+              <Input className="mt-1" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="TFT" />
+            </div>
+            <div>
+              <Label className="text-xs">Category</Label>
+              <Input className="mt-1" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Biochemistry" />
+            </div>
+            <div>
+              <Label className="text-xs">Price (₹)</Label>
+              <Input className="mt-1" type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Sample type</Label>
+              <Input className="mt-1" value={sampleType} onChange={(e) => setSampleType(e.target.value)} placeholder="Blood" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Parameters</p>
+            {params.map((p, idx) => (
+              <div key={idx} className="grid grid-cols-[1fr_70px_70px_70px] items-center gap-1.5">
+                <Input
+                  className="h-8 text-xs"
+                  placeholder="Parameter name"
+                  value={p.name}
+                  onChange={(e) => setParams((prev) => prev.map((l, i) => (i === idx ? { ...l, name: e.target.value } : l)))}
+                />
+                <Input
+                  className="h-8 text-xs"
+                  placeholder="Unit"
+                  value={p.unit}
+                  onChange={(e) => setParams((prev) => prev.map((l, i) => (i === idx ? { ...l, unit: e.target.value } : l)))}
+                />
+                <Input
+                  className="h-8 text-xs"
+                  type="number"
+                  placeholder="Ref min"
+                  value={p.referenceRangeMin}
+                  onChange={(e) => setParams((prev) => prev.map((l, i) => (i === idx ? { ...l, referenceRangeMin: e.target.value } : l)))}
+                />
+                <Input
+                  className="h-8 text-xs"
+                  type="number"
+                  placeholder="Ref max"
+                  value={p.referenceRangeMax}
+                  onChange={(e) => setParams((prev) => prev.map((l, i) => (i === idx ? { ...l, referenceRangeMax: e.target.value } : l)))}
+                />
+              </div>
+            ))}
+            <Button type="button" variant="ghost" size="sm" onClick={() => setParams((prev) => [...prev, emptyParamLine])}>
+              + Add parameter
+            </Button>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+          <Button disabled={!ready || create.isPending} onClick={submit}>
+            {create.isPending ? "Adding…" : "Add test"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function EnterResultsDialog({
