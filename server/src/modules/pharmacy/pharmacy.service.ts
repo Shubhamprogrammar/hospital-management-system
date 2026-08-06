@@ -4,7 +4,7 @@ import { emitToRoom } from "../../core/utils/socket.js";
 
 /** Pending prescriptions queue for dispensing (FR 19.4-01). */
 export async function getDispensingQueue() {
-  return prisma.prescription.findMany({
+  const prescriptions = await prisma.prescription.findMany({
     where: { status: { in: ["ACTIVE", "PARTIALLY_DISPENSED"] } },
     include: {
       patient: { select: { id: true, uhid: true, name: true } },
@@ -15,6 +15,8 @@ export async function getDispensingQueue() {
     },
     orderBy: { createdAt: "asc" },
   });
+
+  return prescriptions.map((prescription, position) => ({ prescription, position: position + 1 }));
 }
 
 /**

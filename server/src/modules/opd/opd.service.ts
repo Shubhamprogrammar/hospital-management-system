@@ -185,7 +185,7 @@ export async function getDepartmentQueue(departmentId: string, date: string) {
     orderBy: { checkedInAt: "asc" },
   });
 
-  return visits;
+  return visits.map((visit, position) => ({ visit, position: position + 1 }));
 }
 
 /**
