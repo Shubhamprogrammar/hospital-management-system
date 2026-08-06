@@ -385,11 +385,7 @@ export default function DoctorsPage() {
                       startTime: v.startTime,
                       endTime: v.endTime,
                       slotDurationMinutes: Number(v.slotDurationMinutes),
-<<<<<<< HEAD
                       clinicRoom: v.clinicRoom?.trim() || undefined,
-=======
-                      clinicRoom: v.clinicRoom.trim() || undefined,
->>>>>>> c7507d1 (Reapply "Merge pull request #6 from Shubhamprogrammar/abhishek")
                     }],
                   },
                 });
