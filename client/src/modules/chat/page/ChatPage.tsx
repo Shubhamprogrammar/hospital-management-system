@@ -233,12 +233,7 @@ export default function ChatPage() {
   const canStartChat = hasRole(session?.user?.role as Role | undefined, ...STAFF_CHAT_ROLES);
 
   return (
-    <div
-      className={cn(
-        "flex min-h-0 flex-col",
-        activeId ? "h-[calc(100dvh-2rem)] lg:h-[calc(100dvh-8rem)]" : "h-[calc(100dvh-8rem)]",
-      )}
-    >
+    <div className="flex h-[calc(100dvh-5.5rem)] flex-col md:h-[calc(100dvh-6.5rem)]">
       {/* Hide the global header on mobile while inside a chat (WhatsApp-style). */}
       <div className={cn(activeId && "hidden lg:block")}>
         <PageHeader
@@ -262,9 +257,9 @@ export default function ChatPage() {
         pending={start.isPending}
       />
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[280px_1fr]">
+      <div className="grid min-h-0 flex-1 grid-rows-1 gap-4 lg:grid-cols-[280px_1fr]">
         {/* Conversation list — hidden on mobile once a chat is open. */}
-        <div className={cn("rounded-lg border border-border bg-card", activeId && "hidden lg:block")}>
+        <div className={cn("min-h-0 rounded-lg border border-border bg-card", activeId && "hidden lg:block")}>
           <ScrollArea className="h-full">
             {conversations.isLoading ? (
               <div className="space-y-2 p-3">
@@ -291,7 +286,7 @@ export default function ChatPage() {
         {/* Chat window — fills the screen on mobile when a conversation is open. */}
         <div
           className={cn(
-            "flex min-w-0 flex-col rounded-lg border border-border bg-card",
+            "flex min-h-0 min-w-0 flex-col rounded-lg border border-border bg-card",
             !activeId && "hidden lg:flex",
           )}
         >

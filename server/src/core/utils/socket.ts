@@ -2,9 +2,28 @@ import type { Server as HttpServer } from "http";
 import { Server, type Socket } from "socket.io";
 import { auth } from "../../config/auth.js";
 import { env } from "../../config/env.js";
+import { prisma } from "../../config/prisma.js";
 import { logger } from "./logger.js";
 
 let io: Server | null = null;
+
+/**
+ * Resolves a user from a raw session token.
+ *
+ * better-auth's `auth.api.getSession()` only reads the *signed* session cookie
+ * (`<token>.<hmac>`), so a bare bearer token always resolves to `null`. Socket
+ * clients can't send the signed cookie (it's host-scoped to the app origin, and
+ * the socket connects cross-origin), so look the token up directly in the
+ * session store instead — the same row the signed cookie encodes.
+ */
+async function getSessionByToken(token: string) {
+  const session = await prisma.session.findUnique({ where: { token } });
+  if (!session) return null;
+  if (new Date(session.expiresAt).getTime() <= Date.now()) return null;
+  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  if (!user) return null;
+  return { session, user };
+}
 
 /**
  * Socket.IO setup with JWT/session authentication middleware and
@@ -32,9 +51,7 @@ export function setupSocket(httpServer: HttpServer): Server {
       // (credentials: include), so without this fallback no one can connect.
       const token = socket.handshake.auth?.token;
       const session = token
-        ? await auth.api.getSession({
-            headers: { authorization: `Bearer ${token}` },
-          })
+        ? await getSessionByToken(token)
         : await auth.api.getSession({
             headers: { cookie: socket.handshake.headers.cookie ?? "" },
           });

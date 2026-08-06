@@ -118,7 +118,7 @@ export default function ChatbotPage() {
   };
 
   return (
-    <div className="flex h-[calc(100dvh-8rem)] flex-col">
+    <div className="flex h-[calc(100dvh-5.5rem)] flex-col md:h-[calc(100dvh-6.5rem)]">
       <PageHeader
         title="Hospital Assistant"
         description="AI chatbot for appointment guidance, FAQs, and hospital info. Not a substitute for medical advice."
