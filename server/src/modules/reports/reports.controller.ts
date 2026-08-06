@@ -6,6 +6,9 @@ import {
   listTemplates,
   generateReport,
   getJobStatus,
+  listJobs,
+  exportReportCsv,
+  deleteReportJob,
   createSchedule,
   listSchedules,
 } from "./reports.service.js";
@@ -36,6 +39,36 @@ export const generateReportHandler = catchAsync(async (req: Request, res: Respon
 export const getJobStatusHandler = catchAsync(async (req: Request, res: Response) => {
   const job = await getJobStatus(req.params.id);
   sendSuccess(res, job);
+});
+
+export const listJobsHandler = catchAsync(async (req: Request, res: Response) => {
+  const jobs = await listJobs(Number(req.query.limit));
+  sendSuccess(res, jobs);
+});
+
+export const deleteReportJobHandler = catchAsync(async (req: Request, res: Response) => {
+  const actor = (req as any).user;
+  const result = await deleteReportJob(req.params.id);
+  writeAuditLog(
+    {
+      actorId: actor?.id,
+      actorRole: actor?.role,
+      action: "REPORT_DELETED",
+      module: "reports",
+      entityType: "ReportJob",
+      entityId: req.params.id,
+    },
+    req,
+  );
+  sendSuccess(res, result);
+});
+
+/** Streams the report data as a downloadable CSV attachment (not the JSON envelope). */
+export const exportReportCsvHandler = catchAsync(async (req: Request, res: Response) => {
+  const { filename, csv } = await exportReportCsv(req.params.id);
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(csv);
 });
 
 export const createScheduleHandler = catchAsync(async (req: Request, res: Response) => {

@@ -123,4 +123,26 @@ export const api = {
 
   /** Use when the caller also needs meta fields beyond pagination (e.g. notifications' `meta.unread`). */
   raw: requestRaw,
+
+  /**
+   * Fetch a raw/binary response (file download). Throws ApiError on failure so
+   * callers get the standard error envelope, and returns the Response for
+   * blob/text handling.
+   */
+  download: async (path: string, query?: Query): Promise<Response> => {
+    const res = await fetch(buildUrl(path, query), { credentials: "include" });
+    if (!res.ok) {
+      let message = res.statusText;
+      let code = "DOWNLOAD_FAILED";
+      try {
+        const body = (await res.json()) as ApiErrorBody | undefined;
+        if (body?.error?.message) message = body.error.message;
+        if (body?.error?.code) code = body.error.code;
+      } catch {
+        // non-JSON error body — keep statusText
+      }
+      throw new ApiError(res.status, code, message);
+    }
+    return res;
+  },
 };

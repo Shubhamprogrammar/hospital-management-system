@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { BarChart3Icon, CalendarClockIcon, ClockIcon } from "lucide-react";
+import { BarChart3Icon, CalendarClockIcon, DownloadIcon, EyeIcon, FileDownIcon, Trash2Icon } from "lucide-react";
 
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import { Button } from "@/shared/components/ui/button";
@@ -25,8 +25,10 @@ import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import {
-  createReportSchedule, generateReport, getReportJobStatus, listReportSchedules, listReportTemplates,
+  createReportSchedule, deleteReportJob, downloadReportCsv, downloadReportPdf, generateReport,
+  getReportJobStatus, listReportJobs, listReportSchedules, listReportTemplates,
 } from "@/shared/services/reports.service";
+import { buildReportSections, formatValue } from "@/shared/lib/reportResult";
 import { useSession } from "@/shared/lib/auth-client";
 import { ROLES, hasRole, type Role } from "@/shared/types";
 import type { ReportJob } from "@/shared/types/domain";
@@ -39,7 +41,8 @@ export default function ReportsPage() {
 
   const [running, setRunning] = useState<string | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [jobs, setJobs] = useState<ReportJob[]>([]);
+  const [viewing, setViewing] = useState<ReportJob | null>(null);
+  const [deleteFor, setDeleteFor] = useState<ReportJob | null>(null);
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
@@ -48,6 +51,7 @@ export default function ReportsPage() {
   const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
 
   const templates = useQuery({ queryKey: ["reports", "templates"], queryFn: () => listReportTemplates({ limit: 50 }) });
+  const jobsQuery = useQuery({ queryKey: ["reports", "jobs"], queryFn: () => listReportJobs(50) });
   const schedules = useQuery({ queryKey: ["reports", "schedules"], queryFn: () => listReportSchedules(), enabled: isAdmin });
 
   const generate = useMutation({
@@ -55,7 +59,7 @@ export default function ReportsPage() {
     onSuccess: (job) => {
       toast.success(job.status === "COMPLETED" ? "Report generated" : `Report queued (${job.status})`);
       setRunning(null);
-      setJobs((prev) => [job, ...prev]);
+      queryClient.setQueryData<ReportJob[]>(["reports", "jobs"], (prev) => [job, ...(prev ?? [])]);
       queryClient.invalidateQueries({ queryKey: ["reports"] });
     },
     onError: (e: Error) => {
@@ -71,6 +75,19 @@ export default function ReportsPage() {
       toast.success("Report schedule created");
       setScheduleOpen(false);
       queryClient.invalidateQueries({ queryKey: ["reports"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: (jobId: string) => deleteReportJob(jobId),
+    onSuccess: (_data, jobId) => {
+      toast.success("Report deleted");
+      setDeleteFor(null);
+      if (viewing?.id === jobId) setViewing(null);
+      queryClient.setQueryData<ReportJob[]>(["reports", "jobs"], (prev) => (prev ?? []).filter((j) => j.id !== jobId));
+      // Stop the row's status poller — it would otherwise keep hitting 404s.
+      queryClient.removeQueries({ queryKey: ["reports", "job", jobId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -146,8 +163,16 @@ export default function ReportsPage() {
 
         <TabsContent value="jobs">
           <div className="rounded-lg border border-border bg-card">
-            {jobs.length === 0 ? (
-              <EmptyState icon={ClockIcon} title="No jobs this session" description="Generated reports appear here with live status." />
+            {jobsQuery.isLoading ? (
+              <div className="space-y-2 p-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-11 w-full" />)}</div>
+            ) : jobsQuery.isError ? (
+              <ErrorState error={jobsQuery.error} onRetry={() => jobsQuery.refetch()} />
+            ) : (jobsQuery.data ?? []).length === 0 ? (
+              <EmptyState
+                icon={FileDownIcon}
+                title="No reports yet"
+                description="Generate a report from the Templates tab — completed reports can be viewed here and downloaded as CSV."
+              />
             ) : (
               <Table>
                 <TableHeader>
@@ -156,11 +181,12 @@ export default function ReportsPage() {
                     <TableHead>Status</TableHead>
                     <TableHead>Queued</TableHead>
                     <TableHead>Completed</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {jobs.map((job) => (
-                    <JobRow key={job.id} job={job} />
+                  {(jobsQuery.data ?? []).map((job) => (
+                    <JobRow key={job.id} job={job} onView={setViewing} canDelete={isAdmin} onDelete={setDeleteFor} />
                   ))}
                 </TableBody>
               </Table>
@@ -204,6 +230,51 @@ export default function ReportsPage() {
         )}
       </Tabs>
 
+      <Dialog open={viewing !== null} onOpenChange={(open) => { if (!open) setViewing(null); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{viewing?.template?.name ?? "Report"} — results</DialogTitle>
+            <DialogDescription>
+              {viewing?.completedAt
+                ? `Generated ${new Date(viewing.completedAt).toLocaleString()}`
+                : "Report output"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto pr-1">
+            <ReportResultView result={viewing?.result} />
+          </div>
+          <DialogFooter className="flex-wrap gap-2">
+            {viewing?.status === "COMPLETED" && (
+              <>
+                <Button variant="outline" onClick={() => downloadReportPdf(viewing).catch((e) => toast.error(e.message))}>
+                  <FileDownIcon className="size-4" /> Download PDF
+                </Button>
+                <Button onClick={() => downloadReportCsv(viewing.id).catch((e) => toast.error(e.message))}>
+                  <DownloadIcon className="size-4" /> Download CSV
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteFor !== null} onOpenChange={(open) => { if (!open) setDeleteFor(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete report</DialogTitle>
+            <DialogDescription>
+              Delete “{deleteFor?.template?.name ?? "this report"}”? This permanently removes the report and its data.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteFor(null)}>Cancel</Button>
+            <Button variant="destructive" disabled={remove.isPending} onClick={() => deleteFor && remove.mutate(deleteFor.id)}>
+              {remove.isPending ? "Deleting…" : "Delete report"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -222,13 +293,14 @@ export default function ReportsPage() {
 }
 
 /** Polls a generated job's status until it completes or fails. */
-function JobRow({ job }: { job: ReportJob }) {
+function JobRow({ job, onView, canDelete, onDelete }: { job: ReportJob; onView: (job: ReportJob) => void; canDelete: boolean; onDelete: (job: ReportJob) => void }) {
   const status = useQuery({
     queryKey: ["reports", "job", job.id],
     queryFn: () => getReportJobStatus(job.id),
     refetchInterval: job.status === "COMPLETED" || job.status === "FAILED" ? false : 4000,
   });
   const current = status.data ?? job;
+  const done = current.status === "COMPLETED";
   return (
     <TableRow>
       <TableCell className="font-medium">{current.template?.name ?? "—"}</TableCell>
@@ -237,7 +309,91 @@ function JobRow({ job }: { job: ReportJob }) {
       <TableCell className="text-muted-foreground">
         {current.completedAt ? new Date(current.completedAt).toLocaleString() : "—"}
       </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-2">
+          {done ? (
+            <>
+              <Button size="sm" variant="outline" onClick={() => onView(current)}>
+                <EyeIcon className="size-3.5" /> View
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => downloadReportPdf(current).catch((e) => toast.error(e.message))}>
+                <FileDownIcon className="size-3.5" /> PDF
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => downloadReportCsv(current.id).catch((e) => toast.error(e.message))}>
+                <DownloadIcon className="size-3.5" /> CSV
+              </Button>
+            </>
+          ) : current.status === "FAILED" ? (
+            <span className="text-xs text-muted-foreground">Failed</span>
+          ) : (
+            <span className="text-xs text-muted-foreground">Running…</span>
+          )}
+          {canDelete && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              title="Delete report"
+              aria-label={`Delete ${current.template?.name ?? "report"}`}
+              onClick={() => onDelete(current)}
+            >
+              <Trash2Icon className="size-3.5" />
+            </Button>
+          )}
+        </div>
+      </TableCell>
     </TableRow>
+  );
+}
+
+// ---------- Report result rendering ----------
+
+function ResultTable({ columns, rows }: { columns: Array<{ header: string; dataKey: string }>; rows: Array<Record<string, unknown>> }) {
+  if (columns.length === 0) return null;
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {columns.map((c) => <TableHead key={c.dataKey}>{c.header}</TableHead>)}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row, i) => (
+            <TableRow key={i}>
+              {columns.map((c) => <TableCell key={c.dataKey}>{formatValue(row[c.dataKey])}</TableCell>)}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/** Renders a report job's persisted result: summary cards + detail tables. */
+function ReportResultView({ result }: { result: unknown }) {
+  const sections = buildReportSections(result);
+  const hasData = sections.summary.length > 0 || sections.tables.length > 0;
+  if (!hasData) return <p className="text-sm text-muted-foreground">No data was produced for this report.</p>;
+  return (
+    <div className="flex flex-col gap-5">
+      {sections.summary.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {sections.summary.map((s) => (
+            <div key={s.label} className="rounded-lg border border-border bg-muted/40 p-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{s.label}</div>
+              <div className="mt-1 truncate text-lg font-semibold" title={formatValue(s.value)}>{formatValue(s.value)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {sections.tables.map((t) => (
+        <div key={t.title}>
+          <h4 className="mb-2 text-sm font-semibold text-foreground">{t.title}</h4>
+          <ResultTable columns={t.columns} rows={t.rows} />
+        </div>
+      ))}
+    </div>
   );
 }
 

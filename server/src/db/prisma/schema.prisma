@@ -1547,6 +1547,9 @@ model ReportJob {
   templateId  String
   requestedBy String?
   params      Json?
+  // Computed report output (persisted on completion so results are retrievable
+  // later and exportable — previously the data was discarded after computing).
+  result      Json?
   status      ReportJobStatus @default(QUEUED)
   s3Key       String?
   createdAt   DateTime        @default(now())

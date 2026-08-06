@@ -758,6 +758,8 @@ export interface ReportJob {
   templateId: string;
   requestedBy: string | null;
   params: unknown;
+  /** Computed report output, persisted when the job completes. */
+  result: unknown;
   status: ReportJobStatus;
   s3Key: string | null;
   createdAt: string;

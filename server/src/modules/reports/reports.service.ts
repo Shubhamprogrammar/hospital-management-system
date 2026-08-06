@@ -98,14 +98,32 @@ export async function generateReport(data: {
   });
 
   try {
-    await executeReport(key, data);
+    // Persist the computed output on the job so the result can be viewed or
+    // exported later — previously it was computed and immediately discarded.
+    const result = await executeReport(key, data);
+    await prisma.reportJob.update({
+      where: { id: job.id },
+      data: { status: "COMPLETED", completedAt: new Date(), result: result as object },
+    });
     emitToRoom("reports", "reports:job-completed", { jobId: job.id });
-    await prisma.reportJob.update({ where: { id: job.id }, data: { status: "COMPLETED", completedAt: new Date() } });
     return getJobStatus(job.id);
   } catch (error) {
     await prisma.reportJob.update({ where: { id: job.id }, data: { status: "FAILED" } });
     throw new AppError("Report generation failed", 500, undefined, "ERR_REPORT_GENERATION_FAILED");
   }
+}
+
+/**
+ * Recent report jobs (most recent first) so the UI can restore jobs after a
+ * page reload, not just for the current session.
+ */
+export async function listJobs(limit = 50) {
+  const take = Math.min(Math.max(Number(limit) || 50, 1), 100);
+  return prisma.reportJob.findMany({
+    include: { template: { select: { id: true, name: true } } },
+    orderBy: { createdAt: "desc" },
+    take,
+  });
 }
 
 export async function getJobStatus(jobId: string) {
@@ -115,6 +133,97 @@ export async function getJobStatus(jobId: string) {
   });
   if (!job) throw new AppError("Report job not found", 404, undefined, "NOT_FOUND");
   return job;
+}
+
+/** Permanently removes a report job and its persisted result. */
+export async function deleteReportJob(jobId: string) {
+  // deleteMany is race-safe (a concurrent delete can't throw P2025) — the
+  // same pattern used by the chat/uploads modules.
+  const { count } = await prisma.reportJob.deleteMany({ where: { id: jobId } });
+  if (count === 0) throw new AppError("Report job not found", 404, undefined, "NOT_FOUND");
+  return { deleted: true };
+}
+
+/**
+ * Build a downloadable CSV from a completed job's persisted result. Flattens
+ * the nested aggregate shapes the templates produce (e.g. `_count._all`) into
+ * tabular rows so the file opens cleanly in Excel/Sheets.
+ */
+export async function exportReportCsv(jobId: string): Promise<{ filename: string; csv: string }> {
+  const job = await prisma.reportJob.findUnique({
+    where: { id: jobId },
+    include: { template: { select: { name: true } } },
+  });
+  if (!job) throw new AppError("Report job not found", 404, undefined, "NOT_FOUND");
+  if (job.status !== "COMPLETED" || !job.result) {
+    throw new AppError("Report has no generated data yet", 400, undefined, "ERR_REPORT_NOT_READY");
+  }
+
+  const safeName = job.template.name.replace(/[^a-z0-9-_]+/gi, "-").toLowerCase();
+  const date = new Date(job.createdAt).toISOString().slice(0, 10);
+  const csv = resultToCsv(job.result as Record<string, unknown>);
+  return { filename: `${safeName}-${date}.csv`, csv };
+}
+
+/** Escape a value for a CSV cell (quotes + doubles embedded quotes). */
+function csvCell(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const s = typeof value === "object" ? JSON.stringify(value) : String(value);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, "\"\"")}"` : s;
+}
+
+function rowsToCsv(rows: Array<Record<string, unknown>>): string {
+  if (rows.length === 0) return "";
+  const headers = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
+  const lines = [headers.join(",")];
+  for (const row of rows) lines.push(headers.map((h) => csvCell(row[h])).join(","));
+  return lines.join("\r\n");
+}
+
+/** Flatten a nested Prisma aggregate row (`_count: { _all: 3 }`) one level deep. */
+function flattenAggregateRow(row: Record<string, unknown>): Record<string, unknown> {
+  const flat: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const inner = value as Record<string, unknown>;
+      const innerKeys = Object.keys(inner);
+      if (innerKeys.length === 1) flat[key.replace(/^_/, "")] = Object.values(inner)[0];
+      else for (const [innerKey, innerValue] of Object.entries(inner)) flat[`${key}.${innerKey}`] = innerValue;
+    } else {
+      flat[key] = value;
+    }
+  }
+  return flat;
+}
+
+/**
+ * Convert a report result object into CSV text. Scalar metrics become a
+ * `Summary` section; array-valued fields (census/visits/stockSummary) become
+ * their own detail sections — this stays generic across all templates.
+ */
+export function resultToCsv(result: Record<string, unknown>): string {
+  const summary: Array<Record<string, unknown>> = [];
+  const sections: string[] = [];
+
+  for (const [key, value] of Object.entries(result)) {
+    if (Array.isArray(value)) {
+      const rows = value.map((item) =>
+        item && typeof item === "object"
+          ? flattenAggregateRow(item as Record<string, unknown>)
+          : { value: item },
+      );
+      sections.push(`${key}\r\n${rowsToCsv(rows)}`);
+    } else if (value !== null && typeof value === "object") {
+      for (const [innerKey, innerValue] of Object.entries(value as Record<string, unknown>)) {
+        summary.push({ Metric: `${key}.${innerKey}`, Value: innerValue });
+      }
+    } else {
+      summary.push({ Metric: key, Value: value });
+    }
+  }
+
+  if (summary.length > 0) sections.unshift(`Summary\r\n${rowsToCsv(summary)}`);
+  return sections.join("\r\n\r\n");
 }
 
 export async function createSchedule(data: {
