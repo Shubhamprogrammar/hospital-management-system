@@ -72,7 +72,7 @@ export async function confirmUpload(fileId: string) {
   return updated;
 }
 
-export async function getDownloadUrl(fileId: string, userId: string) {
+export async function getDownloadUrl(fileId: string, userId: string, actorRole?: string) {
   const file = await prisma.fileUpload.findUnique({ where: { id: fileId } });
   if (!file) throw new AppError("Upload not found", 404, undefined, "NOT_FOUND");
 
@@ -86,8 +86,10 @@ export async function getDownloadUrl(fileId: string, userId: string) {
     );
   }
 
-  // Ownership/authorization: only uploader by default
-  if (file.uploadedBy !== userId) {
+  // System/hospital admins manage the whole patient record; everyone else can
+  // only download files they uploaded themselves.
+  const isAdmin = actorRole === "SUPER_ADMIN" || actorRole === "HOSPITAL_ADMIN";
+  if (!isAdmin && file.uploadedBy !== userId) {
     throw new AppError("You do not have access to this file", 403, undefined, "FORBIDDEN");
   }
 

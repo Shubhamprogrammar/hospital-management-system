@@ -23,6 +23,7 @@
     "@types/morgan": "^1.9.10",
     "bcrypt": "^6.0.0",
     "better-auth": "^1.6.25",
+    "cloudinary": "^2.10.0",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
