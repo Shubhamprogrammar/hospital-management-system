@@ -21,6 +21,7 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/components/ui/form";
+import { Label } from "@/shared/components/ui/label";
 import { PaginationBar } from "@/shared/components/ui/pagination";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
@@ -253,15 +254,15 @@ function EditDepartmentForm({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <FormLabel>Name</FormLabel>
+        <Label>Name</Label>
         <Input className="mt-1" value={v.name} onChange={(e) => setV((p) => ({ ...p, name: e.target.value }))} />
       </div>
       <div>
-        <FormLabel>Code</FormLabel>
+        <Label>Code</Label>
         <Input className="mt-1" value={v.code} onChange={(e) => setV((p) => ({ ...p, code: e.target.value }))} />
       </div>
       <div>
-        <FormLabel>Description</FormLabel>
+        <Label>Description</Label>
         <Textarea className="mt-1" value={v.description} onChange={(e) => setV((p) => ({ ...p, description: e.target.value }))} />
       </div>
       <DialogFooter>

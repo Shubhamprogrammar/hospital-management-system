@@ -23,6 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/shared/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/components/ui/form";
+import { Label } from "@/shared/components/ui/label";
 import { PaginationBar } from "@/shared/components/ui/pagination";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
@@ -313,12 +314,12 @@ function EditWardForm({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <FormLabel>Name</FormLabel>
+        <Label>Name</Label>
         <Input className="mt-1" value={v.name} onChange={(e) => setV((p) => ({ ...p, name: e.target.value }))} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <FormLabel>Type</FormLabel>
+          <Label>Type</Label>
           <Select value={v.wardType} onValueChange={(t) => setV((p) => ({ ...p, wardType: t }))}>
             <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -327,12 +328,12 @@ function EditWardForm({
           </Select>
         </div>
         <div>
-          <FormLabel>Floor</FormLabel>
+          <Label>Floor</Label>
           <Input className="mt-1" value={v.floor} onChange={(e) => setV((p) => ({ ...p, floor: e.target.value }))} />
         </div>
       </div>
       <div>
-        <FormLabel>Nurse:patient ratio</FormLabel>
+        <Label>Nurse:patient ratio</Label>
         <Input className="mt-1" value={v.nursePatientRatio} onChange={(e) => setV((p) => ({ ...p, nursePatientRatio: e.target.value }))} />
       </div>
       <DialogFooter>

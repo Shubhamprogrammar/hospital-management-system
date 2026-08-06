@@ -22,6 +22,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/shared/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/components/ui/form";
+import { Label } from "@/shared/components/ui/label";
 import { PaginationBar } from "@/shared/components/ui/pagination";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
@@ -333,7 +334,7 @@ function RenewForm({ pending, onSubmit }: { pending: boolean; onSubmit: (notes?:
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit(notes.trim() || undefined); }} className="flex flex-col gap-4">
       <div className="grid gap-1.5">
-        <FormLabel>Notes (optional)</FormLabel>
+        <Label>Notes (optional)</Label>
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Renewal note…" />
       </div>
       <DialogFooter>

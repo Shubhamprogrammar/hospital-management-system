@@ -23,6 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/shared/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/components/ui/form";
+import { Label } from "@/shared/components/ui/label";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { PaginationBar } from "@/shared/components/ui/pagination";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
@@ -556,19 +557,19 @@ function EditPatientDialog({
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
-            <FormLabel>Full name</FormLabel>
+            <Label>Full name</Label>
             <Input className="mt-1" value={v.name} onChange={(e) => setV((p) => ({ ...p, name: e.target.value }))} />
           </div>
           <div>
-            <FormLabel>Phone</FormLabel>
+            <Label>Phone</Label>
             <Input className="mt-1" value={v.phone} onChange={(e) => setV((p) => ({ ...p, phone: e.target.value }))} />
           </div>
           <div>
-            <FormLabel>Email</FormLabel>
+            <Label>Email</Label>
             <Input className="mt-1" type="email" value={v.email} onChange={(e) => setV((p) => ({ ...p, email: e.target.value }))} />
           </div>
           <div>
-            <FormLabel>Blood group</FormLabel>
+            <Label>Blood group</Label>
             <Select value={v.bloodGroup} onValueChange={(bg) => setV((p) => ({ ...p, bloodGroup: bg }))}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -578,11 +579,11 @@ function EditPatientDialog({
           </div>
           <div />
           <div className="col-span-2">
-            <FormLabel>Allergies (comma-separated)</FormLabel>
+            <Label>Allergies (comma-separated)</Label>
             <Input className="mt-1" value={v.allergies} onChange={(e) => setV((p) => ({ ...p, allergies: e.target.value }))} />
           </div>
           <div className="col-span-2">
-            <FormLabel>Chronic conditions (comma-separated)</FormLabel>
+            <Label>Chronic conditions (comma-separated)</Label>
             <Input className="mt-1" value={v.chronicConditions} onChange={(e) => setV((p) => ({ ...p, chronicConditions: e.target.value }))} />
           </div>
         </div>
@@ -630,7 +631,7 @@ function UploadDocumentDialog({
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <div>
-            <FormLabel>Document type</FormLabel>
+            <Label>Document type</Label>
             <Select value={docType} onValueChange={(v) => setDocType(v as PatientDocument["docType"])}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -641,7 +642,7 @@ function UploadDocumentDialog({
             </Select>
           </div>
           <div>
-            <FormLabel>File</FormLabel>
+            <Label>File</Label>
             <Input
               type="file"
               className="mt-1"
@@ -687,7 +688,7 @@ function MergePatientDialog({
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <div>
-            <FormLabel>Duplicate patient</FormLabel>
+            <Label>Duplicate patient</Label>
             <Select value={duplicateId} onValueChange={setDuplicateId}>
               <SelectTrigger className="mt-1"><SelectValue placeholder="Select duplicate record…" /></SelectTrigger>
               <SelectContent>
@@ -697,7 +698,7 @@ function MergePatientDialog({
             {candidates.length === 0 && <p className="mt-1 text-xs text-muted-foreground">No other patients to merge with.</p>}
           </div>
           <div>
-            <FormLabel>Reason</FormLabel>
+            <Label>Reason</Label>
             <Input className="mt-1" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Duplicate registration" />
           </div>
         </div>

@@ -31,6 +31,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/shared/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/components/ui/form";
+import { Label } from "@/shared/components/ui/label";
 import { PaginationBar } from "@/shared/components/ui/pagination";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
@@ -691,7 +692,7 @@ function RejectDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
-          <FormLabel>Reason for rejection</FormLabel>
+          <Label>Reason for rejection</Label>
           <Textarea
             rows={3}
             placeholder="Doctor unavailable, slot conflict, etc."
@@ -733,16 +734,16 @@ function RescheduleForm({
       className="flex flex-col gap-4"
     >
       <div className="grid gap-1.5">
-        <FormLabel>Date</FormLabel>
+        <Label>Date</Label>
         <Input type="date" min={todayStr()} value={v.appointmentDate} onChange={(e) => setV((p) => ({ ...p, appointmentDate: e.target.value }))} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-1.5">
-          <FormLabel>Start</FormLabel>
+          <Label>Start</Label>
           <Input type="time" value={v.slotStartTime} onChange={(e) => setV((p) => ({ ...p, slotStartTime: e.target.value }))} />
         </div>
         <div className="grid gap-1.5">
-          <FormLabel>End</FormLabel>
+          <Label>End</Label>
           <Input type="time" value={v.slotEndTime} onChange={(e) => setV((p) => ({ ...p, slotEndTime: e.target.value }))} />
         </div>
       </div>

@@ -438,16 +438,16 @@ function LeaveForm({ pending, onSubmit }: { pending: boolean; onSubmit: (input: 
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <FormLabel>Start</FormLabel>
+          <Label>Start</Label>
           <Input className="mt-1" type="date" value={v.startDate} onChange={(e) => setV((p) => ({ ...p, startDate: e.target.value }))} />
         </div>
         <div>
-          <FormLabel>End</FormLabel>
+          <Label>End</Label>
           <Input className="mt-1" type="date" value={v.endDate} onChange={(e) => setV((p) => ({ ...p, endDate: e.target.value }))} />
         </div>
       </div>
       <div>
-        <FormLabel>Reason (optional)</FormLabel>
+        <Label>Reason (optional)</Label>
         <Input className="mt-1" value={v.reason} onChange={(e) => setV((p) => ({ ...p, reason: e.target.value }))} />
       </div>
       <DialogFooter>
