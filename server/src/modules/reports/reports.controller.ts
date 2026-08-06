@@ -25,8 +25,8 @@ export const generateReportHandler = catchAsync(async (req: Request, res: Respon
       action: "REPORT_GENERATED",
       module: "reports",
       entityType: "ReportJob",
-      entityId: result.jobId,
-      after: { templateKey: req.body.templateKey },
+      entityId: result.id,
+      after: { templateId: req.body.templateId, templateKey: req.body.templateKey },
     },
     req,
   );

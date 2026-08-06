@@ -10,14 +10,10 @@ const REPORT_TEMPLATES = [
   { key: "inventory-valuation", module: "inventory", description: "Stock valuation" },
 ];
 
-export async function listTemplates() {
-  return REPORT_TEMPLATES;
-}
-
 /**
- * Resolve a real ReportTemplate row for a template key, creating it on first
- * use. ReportJob/ReportSchedule.templateId are FKs to ReportTemplate — the
- * old "static-" + key placeholder never referenced an existing row.
+ * Upsert a real ReportTemplate row for a template key. ReportJob/
+ * ReportSchedule.templateId are FKs to ReportTemplate — the old
+ * "static-" + key placeholder never referenced an existing row.
  *
  * Uses an upsert on the unique name so concurrent first-time generations
  * for the same key can't create duplicate template rows.
@@ -35,11 +31,39 @@ async function ensureReportTemplate(key: string) {
 }
 
 /**
+ * Resolve a template row from either its DB id (what the client sends) or its
+ * catalog key (what the Postman samples send). Returns the row and its key.
+ */
+async function resolveTemplate(idOrKey: string) {
+  const row = await prisma.reportTemplate.findFirst({
+    where: { OR: [{ id: idOrKey }, { name: idOrKey }] },
+  });
+  const catalog = row ? REPORT_TEMPLATES.find((t) => t.key === row.name) : undefined;
+  if (!row || !catalog) {
+    throw new AppError("Unknown report template", 400, undefined, "ERR_UNAUTHORIZED_REPORT_TYPE");
+  }
+  return { row, key: catalog.key };
+}
+
+/**
+ * List report templates. Returns real ReportTemplate rows (with `id` and
+ * `name`) so the client can reference templates by id when generating/scheduling.
+ */
+export async function listTemplates() {
+  await Promise.all(REPORT_TEMPLATES.map((t) => ensureReportTemplate(t.key)));
+  return prisma.reportTemplate.findMany({
+    where: { name: { in: REPORT_TEMPLATES.map((t) => t.key) } },
+    orderBy: { name: "asc" },
+  });
+}
+
+/**
  * Generate a report (FR 23.4-01). Synchronous for small reports;
  * large ones enqueue a report_jobs row for async processing.
  */
 export async function generateReport(data: {
-  templateKey: string;
+  templateId?: string;
+  templateKey?: string;
   requestedBy?: string;
   dateFrom: string;
   dateTo: string;
@@ -47,6 +71,9 @@ export async function generateReport(data: {
   doctorId?: string;
 }) {
   const rangeDays = (new Date(data.dateTo).getTime() - new Date(data.dateFrom).getTime()) / 86400000;
+  if (Number.isNaN(rangeDays) || rangeDays < 0) {
+    throw new AppError("Invalid report date range", 400, undefined, "ERR_INVALID_DATE_RANGE");
+  }
   if (rangeDays > 365) {
     throw new AppError(
       "Date range exceeds 1 year — use the async/scheduled path",
@@ -56,14 +83,14 @@ export async function generateReport(data: {
     );
   }
 
-  const template = REPORT_TEMPLATES.find((t) => t.key === data.templateKey);
-  if (!template) throw new AppError("Unknown report template", 400, undefined, "ERR_UNAUTHORIZED_REPORT_TYPE");
+  const idOrKey = data.templateId ?? data.templateKey;
+  if (!idOrKey) throw new AppError("Unknown report template", 400, undefined, "ERR_UNAUTHORIZED_REPORT_TYPE");
+  const { row, key } = await resolveTemplate(idOrKey);
 
   // Create a job row (FR 23.7-02) against a real template record
-  const dbTemplate = await ensureReportTemplate(template.key);
   const job = await prisma.reportJob.create({
     data: {
-      templateId: dbTemplate.id,
+      templateId: row.id,
       requestedBy: data.requestedBy,
       params: data as any,
       status: "PROCESSING",
@@ -71,10 +98,10 @@ export async function generateReport(data: {
   });
 
   try {
-    const result = await executeReport(template.key, data);
+    await executeReport(key, data);
     emitToRoom("reports", "reports:job-completed", { jobId: job.id });
     await prisma.reportJob.update({ where: { id: job.id }, data: { status: "COMPLETED", completedAt: new Date() } });
-    return { jobId: job.id, data: result };
+    return getJobStatus(job.id);
   } catch (error) {
     await prisma.reportJob.update({ where: { id: job.id }, data: { status: "FAILED" } });
     throw new AppError("Report generation failed", 500, undefined, "ERR_REPORT_GENERATION_FAILED");
@@ -82,22 +109,28 @@ export async function generateReport(data: {
 }
 
 export async function getJobStatus(jobId: string) {
-  const job = await prisma.reportJob.findUnique({ where: { id: jobId } });
+  const job = await prisma.reportJob.findUnique({
+    where: { id: jobId },
+    include: { template: { select: { id: true, name: true } } },
+  });
   if (!job) throw new AppError("Report job not found", 404, undefined, "NOT_FOUND");
   return job;
 }
 
 export async function createSchedule(data: {
-  templateKey: string;
+  templateId?: string;
+  templateKey?: string;
   cronExpression: string;
   recipients: string[];
   createdBy?: string;
   params?: unknown;
 }) {
-  const dbTemplate = await ensureReportTemplate(data.templateKey);
+  const idOrKey = data.templateId ?? data.templateKey;
+  if (!idOrKey) throw new AppError("Unknown report template", 400, undefined, "ERR_UNAUTHORIZED_REPORT_TYPE");
+  const { row } = await resolveTemplate(idOrKey);
   const schedule = await prisma.reportSchedule.create({
     data: {
-      templateId: dbTemplate.id,
+      templateId: row.id,
       cronExpression: data.cronExpression,
       recipients: data.recipients,
       createdBy: data.createdBy,
